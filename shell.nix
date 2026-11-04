@@ -11,22 +11,28 @@ in
 pkgs.mkShell {
   packages = with pkgs; [
     # Host build tools
+    bc
+    bison
+    ccache
     cmake
+    cpio
     curl
+    dtc
     file
+    flex
     git
     gnumake
+    kmod
     meson
     ninja
     patch
     perl
     pkg-config
     python3
+    wayland-scanner
     wget
     xz
     zstd
-    ccache
-    wayland-scanner
 
     # aarch64 target toolchain and the small dependency set needed for the
     # FFmpeg/mpv hardware-decode test.  Heavier GUI deps (libplacebo, libass,

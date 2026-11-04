@@ -1,0 +1,76 @@
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
+index bb463c447..484e320f6 100644
+--- a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
+@@ -442,6 +442,9 @@ static void config_registers(struct rkvdec_ctx *ctx,
+ 	bool intra_only;
+ 	unsigned int i;
+ 
++	/* Register fields must not retain segmentation or loop-filter bits. */
++	memset(regs, 0, sizeof(*regs));
++
+ 	dec_params = run->decode_params;
+ 	dst = vb2_to_rkvdec_decoded_buf(&run->base.bufs.dst->vb2_buf);
+ 	ref_bufs[0] = get_ref_buf_vp9(ctx, &dst->base.vb, dec_params->last_frame_ts);
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec.c b/drivers/media/platform/rockchip/rkvdec/rkvdec.c
+index 744a0915f..1e5be43d4 100644
+--- a/drivers/media/platform/rockchip/rkvdec/rkvdec.c
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec.c
+@@ -207,11 +207,12 @@ static void rkvdec_fill_afbc_pixfmt(struct rkvdec_ctx *ctx,
+ 				      blocks * ALIGN(bpp * 256 / 8, 128));
+ }
+ 
+-static void rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
+-				       struct v4l2_pix_format_mplane *pix_mp)
++static u32 rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
++				      struct v4l2_pix_format_mplane *pix_mp)
+ {
+ 	const struct rkvdec_variant *variant = ctx->dev->variant;
+ 	struct v4l2_plane_pix_format *plane = &pix_mp->plane_fmt[0];
++	u32 colmv_offset;
+ 
+ 	if (rkvdec_is_afbc(pix_mp->pixelformat))
+ 		rkvdec_fill_afbc_pixfmt(ctx, pix_mp);
+@@ -225,9 +226,11 @@ static void rkvdec_fill_decoded_pixfmt(struct rkvdec_ctx *ctx,
+ 		plane->sizeimage = plane->bytesperline * lines;
+ 	}
+ 
+-	ctx->colmv_offset = pix_mp->plane_fmt[0].sizeimage;
++	colmv_offset = plane->sizeimage;
+ 
+ 	pix_mp->plane_fmt[0].sizeimage += variant->ops->colmv_size(pix_mp->width, pix_mp->height);
++
++	return colmv_offset;
+ }
+ 
+ static void rkvdec_reset_fmt(struct rkvdec_ctx *ctx, struct v4l2_format *f,
+@@ -252,7 +255,7 @@ static void rkvdec_reset_decoded_fmt(struct rkvdec_ctx *ctx)
+ 	f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+ 	f->fmt.pix_mp.width = ctx->coded_fmt.fmt.pix_mp.width;
+ 	f->fmt.pix_mp.height = ctx->coded_fmt.fmt.pix_mp.height;
+-	rkvdec_fill_decoded_pixfmt(ctx, &f->fmt.pix_mp);
++	ctx->colmv_offset = rkvdec_fill_decoded_pixfmt(ctx, &f->fmt.pix_mp);
+ }
+ 
+ static int rkvdec_check_vp9_profile(const struct rkvdec_coded_fmt_desc *desc,
+@@ -1161,6 +1164,9 @@ static int rkvdec_s_capture_fmt(struct file *file, void *priv,
+ 		return ret;
+ 
+ 	ctx->decoded_fmt = *f;
++	ctx->colmv_offset = f->fmt.pix_mp.plane_fmt[0].sizeimage -
++		ctx->dev->variant->ops->colmv_size(f->fmt.pix_mp.width,
++						f->fmt.pix_mp.height);
+ 	return 0;
+ }
+ 
+@@ -1977,7 +1983,9 @@ static irqreturn_t vdpu381_irq_handler(struct rkvdec_ctx *ctx)
+ 	status = readl(core->regs + VDPU381_REG_STA_INT);
+ 	writel(0, core->regs + VDPU381_REG_STA_INT);
+ 
+-	if (status & VDPU381_STA_INT_DEC_RDY_STA) {
++	if ((status & VDPU381_STA_INT_DEC_RDY_STA) &&
++	    !(status & (VDPU381_STA_INT_ERROR | VDPU381_STA_INT_TIMEOUT |
++			VDPU381_STA_INT_SOFTRESET_RDY))) {
+ 		state = VB2_BUF_STATE_DONE;
+ 	} else {
+ 		state = VB2_BUF_STATE_ERROR;

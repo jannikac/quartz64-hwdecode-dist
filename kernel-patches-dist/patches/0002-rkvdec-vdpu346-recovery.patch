@@ -1,0 +1,603 @@
+diff --git a/drivers/media/platform/rockchip/rkvdec/Kconfig b/drivers/media/platform/rockchip/rkvdec/Kconfig
+index 5f3bdd848..d0db755d6 100644
+--- a/drivers/media/platform/rockchip/rkvdec/Kconfig
++++ b/drivers/media/platform/rockchip/rkvdec/Kconfig
+@@ -14,3 +14,13 @@ config VIDEO_ROCKCHIP_VDEC
+ 	  which accelerates video decoding.
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called rockchip-vdec.
++
++config VIDEO_ROCKCHIP_VDEC_KUNIT_TEST
++	tristate "Rockchip VDPU346 status tests" if !KUNIT_ALL_TESTS
++	depends on KUNIT
++	default KUNIT_ALL_TESTS
++	help
++	  Test VDPU346 interrupt status classification without decoder hardware.
++	  Cover ready/error precedence and the observed VP9 timeout status.
++	  These tests do not exercise MMIO, reset sequencing or DMA quiescence.
++	  The tests may be run in a UML kernel on a development host.
+diff --git a/drivers/media/platform/rockchip/rkvdec/Makefile b/drivers/media/platform/rockchip/rkvdec/Makefile
+index 5eae59e87..322a8937d 100644
+--- a/drivers/media/platform/rockchip/rkvdec/Makefile
++++ b/drivers/media/platform/rockchip/rkvdec/Makefile
+@@ -1,4 +1,5 @@
+ obj-$(CONFIG_VIDEO_ROCKCHIP_VDEC) += rockchip-vdec.o
++obj-$(CONFIG_VIDEO_ROCKCHIP_VDEC_KUNIT_TEST) += rkvdec-vdpu346-test.o
+ 
+ rockchip-vdec-y += \
+ 		   rkvdec.o \
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346-test.c b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346-test.c
+new file mode 100644
+index 000000000..b309f00c8
+--- /dev/null
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346-test.c
+@@ -0,0 +1,52 @@
++// SPDX-License-Identifier: GPL-2.0
++#include <kunit/test.h>
++#include <linux/module.h>
++
++#include "rkvdec-vdpu346.h"
++
++static void vdpu346_completion_test(struct kunit *test)
++{
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x01));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x02));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x04));
++	KUNIT_EXPECT_TRUE(test, vdpu346_decode_succeeded(0x06));
++	KUNIT_EXPECT_TRUE(test, vdpu346_decode_succeeded(0x07));
++}
++
++static void vdpu346_error_precedence_test(struct kunit *test)
++{
++	unsigned int bit;
++
++	/* Bus, decode, timeout, empty-buffer and ColMV errors override ready. */
++	for (bit = 3; bit <= 7; bit++)
++		KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x07 | BIT(bit)));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x207));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x3ff));
++	/* The real-content timeout, both without and with ready also asserted. */
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x23));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x27));
++}
++
++static void vdpu346_nonfatal_status_test(struct kunit *test)
++{
++	/* CABAC end does not independently indicate decode failure. */
++	KUNIT_EXPECT_TRUE(test, vdpu346_decode_succeeded(0x107));
++	KUNIT_EXPECT_FALSE(test, vdpu346_decode_succeeded(0x103));
++}
++
++static struct kunit_case vdpu346_cases[] = {
++	KUNIT_CASE(vdpu346_completion_test),
++	KUNIT_CASE(vdpu346_error_precedence_test),
++	KUNIT_CASE(vdpu346_nonfatal_status_test),
++	{}
++};
++
++static struct kunit_suite vdpu346_suite = {
++	.name = "rkvdec-vdpu346",
++	.test_cases = vdpu346_cases,
++};
++
++kunit_test_suite(vdpu346_suite);
++
++MODULE_LICENSE("GPL");
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346.h b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346.h
+new file mode 100644
+index 000000000..4ec4f11e5
+--- /dev/null
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu346.h
+@@ -0,0 +1,18 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef RKVDEC_VDPU346_H_
++#define RKVDEC_VDPU346_H_
++
++#include <linux/bits.h>
++#include <linux/types.h>
++
++#define VDPU346_IRQ_RAW		BIT(1)
++#define VDPU346_DECODE_READY	BIT(2)
++#define VDPU346_DECODE_ERRORS	(GENMASK(7, 3) | BIT(9))
++
++static inline bool vdpu346_decode_succeeded(u32 status)
++{
++	return (status & VDPU346_IRQ_RAW) && (status & VDPU346_DECODE_READY) &&
++	       !(status & VDPU346_DECODE_ERRORS);
++}
++
++#endif /* RKVDEC_VDPU346_H_ */
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
+index 484e320f6..1509c115f 100644
+--- a/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec-vdpu381-vp9.c
+@@ -100,6 +100,7 @@ struct rkvdec_vp9_frame_info {
+ };
+ 
+ struct rkvdec_vp9_ctx {
++	bool needs_keyframe;
+ 	struct rkvdec_aux_buf priv_tbl;
+ 	struct rkvdec_aux_buf count_tbl;
+ 	struct v4l2_vp9_frame_symbol_counts inter_cnts;
+@@ -693,6 +694,8 @@ static int rkvdec_vp9_run_preamble(struct rkvdec_ctx *ctx,
+ 	if (WARN_ON(!ctrl))
+ 		return -EINVAL;
+ 	dec_params = ctrl->p_cur.p;
++	if (vp9_ctx->needs_keyframe && !(dec_params->flags & V4L2_VP9_FRAME_FLAG_KEY_FRAME))
++		return -EINVAL;
+ 
+ 	ret = validate_dec_params(ctx, dec_params);
+ 	if (ret)
+@@ -796,8 +799,14 @@ static void rkvdec_vp9_done(struct rkvdec_ctx *ctx,
+ 	unsigned int fctx_idx;
+ 
+ 	/* v4l2-specific stuff */
+-	if (result == VB2_BUF_STATE_ERROR)
+-		goto out_update_last;
++	if (result == VB2_BUF_STATE_ERROR) {
++		vp9_ctx->last.valid = false;
++		vp9_ctx->cur.valid = false;
++		vp9_ctx->needs_keyframe = true;
++		return;
++	}
++
++	vp9_ctx->needs_keyframe = false;
+ 
+ 	/*
+ 	 * vp9 stuff
+@@ -982,6 +991,7 @@ static int rkvdec_vp9_start(struct rkvdec_ctx *ctx)
+ 		return -ENOMEM;
+ 
+ 	ctx->priv = vp9_ctx;
++	vp9_ctx->needs_keyframe = true;
+ 
+ 	BUILD_BUG_ON(sizeof(priv_tbl->probs) % 16); /* ensure probs size is 128-bit aligned */
+ 	priv_tbl = dma_alloc_coherent(rkvdec->main_core->dev, sizeof(*priv_tbl),
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec.c b/drivers/media/platform/rockchip/rkvdec/rkvdec.c
+index 1e5be43d4..b4cda224d 100644
+--- a/drivers/media/platform/rockchip/rkvdec/rkvdec.c
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec.c
+@@ -22,6 +22,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/pm.h>
+ #include <linux/pm_runtime.h>
++#include <linux/reset.h>
++#include <linux/delay.h>
+ #include <linux/slab.h>
+ #include <linux/videodev2.h>
+ #include <linux/workqueue.h>
+@@ -35,6 +37,7 @@
+ #include "rkvdec-vdpu381-regs.h"
+ #include "rkvdec-vdpu383-regs.h"
+ #include "rkvdec-rcb.h"
++#include "rkvdec-vdpu346.h"
+ 
+ static bool rkvdec_prefer_afbc;
+ module_param_named(afbc, rkvdec_prefer_afbc, bool, 0644);
+@@ -1539,7 +1542,7 @@ static struct rkvdec_core *acquire_core(struct rkvdec_dev *rkvdec, struct rkvdec
+ 		core = rkvdec->available_cores[--rkvdec->available_core_count];
+ 
+ 		// Set the current core's ctx to this ctx
+-		core->curr_ctx = ctx;
++		WRITE_ONCE(core->curr_ctx, ctx);
+ 	}
+ 
+ 	return core;
+@@ -1554,7 +1557,7 @@ static void release_core(struct rkvdec_dev *rkvdec, struct rkvdec_core *core)
+ {
+ 	guard(spinlock_irqsave)(&rkvdec->cores_lock);
+ 
+-	core->curr_ctx = NULL;
++	WRITE_ONCE(core->curr_ctx, NULL);
+ 	rkvdec->available_cores[rkvdec->available_core_count++] = core;
+ }
+ 
+@@ -1649,10 +1652,14 @@ void rkvdec_schedule_watchdog(struct rkvdec_core *core, u32 timeout_threshold)
+ 	schedule_delayed_work(&core->watchdog_work, msecs_to_jiffies(watchdog_time));
+ }
+ 
++static int vdpu346_reset(struct rkvdec_core *core);
++static void vdpu346_finish(struct rkvdec_ctx *ctx, enum vb2_buffer_state state);
++
+ static void rkvdec_device_run(void *priv)
+ {
+ 	struct rkvdec_ctx *ctx = priv;
+ 	const struct rkvdec_coded_fmt_desc *desc = ctx->coded_fmt_desc;
++	struct rkvdec_core *core;
+ 	int ret;
+ 
+ 	if (WARN_ON(!desc))
+@@ -1662,10 +1669,27 @@ static void rkvdec_device_run(void *priv)
+ 	if (WARN_ON(!ctx->core))
+ 		return;
+ 
++	core = ctx->core;
++	if (core->variant->ops->reset)
++		mutex_lock(&core->job_lock);
++	if (core->failed || core->suspending) {
++		rkvdec_job_finish_no_pm(ctx, VB2_BUF_STATE_ERROR);
++		goto out_unlock;
++	}
++
+ 	ret = pm_runtime_resume_and_get(ctx->core->dev);
+ 	if (ret < 0) {
+ 		rkvdec_job_finish_no_pm(ctx, VB2_BUF_STATE_ERROR);
+-		return;
++		goto out_unlock;
++	}
++
++	if (core->variant->ops->reset && !READ_ONCE(core->initialized)) {
++		ret = vdpu346_reset(core);
++		if (ret) {
++			vdpu346_finish(ctx, VB2_BUF_STATE_ERROR);
++			goto out_unlock;
++		}
++		WRITE_ONCE(core->initialized, true);
+ 	}
+ 
+ 	if (!rkvdec_rcb_buf_validate_size(ctx)) {
+@@ -1678,13 +1702,24 @@ static void rkvdec_device_run(void *priv)
+ 					  ctx->dev->variant->num_rcb_sizes);
+ 		if (ret) {
+ 			rkvdec_job_finish(ctx, VB2_BUF_STATE_ERROR);
+-			return;
++			goto out_unlock;
+ 		}
+ 	}
+ 
++	if (core->variant->ops->reset) {
++		/* Discard stale status before arming this job's watchdog and IRQ. */
++		writel(0, core->regs + VDPU381_REG_STA_INT);
++		core->job_active = true;
++	}
+ 	ret = desc->ops->run(ctx);
+-	if (ret)
++	if (ret) {
++		core->job_active = false;
+ 		rkvdec_job_finish(ctx, VB2_BUF_STATE_ERROR);
++	}
++
++out_unlock:
++	if (core->variant->ops->reset)
++		mutex_unlock(&core->job_lock);
+ }
+ 
+ static const struct v4l2_m2m_ops rkvdec_m2m_ops = {
+@@ -1951,6 +1986,71 @@ static void rkvdec_iommu_restore(struct rkvdec_core *core)
+ 	}
+ }
+ 
++static int vdpu346_reset(struct rkvdec_core *core)
++{
++	u32 control;
++	int ret;
++
++	control = readl(core->regs + VDPU381_REG_IMPORTANT_EN);
++	writel(control | VDPU381_DEC_IRQ_DISABLE,
++	       core->regs + VDPU381_REG_IMPORTANT_EN);
++
++	ret = reset_control_bulk_assert(5, core->resets);
++	if (ret)
++		return ret;
++	udelay(5);
++	return reset_control_bulk_deassert(5, core->resets);
++}
++
++/* Called with job_lock held by the IRQ thread or the watchdog, never both. */
++static void vdpu346_finish(struct rkvdec_ctx *ctx, enum vb2_buffer_state state)
++{
++	struct rkvdec_core *core = ctx->core;
++	int ret = 0;
++
++	lockdep_assert_held(&core->job_lock);
++	if (state == VB2_BUF_STATE_ERROR)
++		ret = vdpu346_reset(core);
++	if (ret) {
++		core->failed = true;
++		dev_err(core->dev, "Decoder reset failed (%d); disabling core\n", ret);
++	}
++
++	/* Reset-ready or a queued old IRQ must not leak into the next job. */
++	writel(readl(core->regs + VDPU381_REG_IMPORTANT_EN) |
++	       VDPU381_DEC_IRQ_DISABLE, core->regs + VDPU381_REG_IMPORTANT_EN);
++	writel(0, core->regs + VDPU381_REG_STA_INT);
++	readl(core->regs + VDPU381_REG_STA_INT);
++	core->job_active = false;
++	rkvdec_job_finish(ctx, state);
++}
++
++static irqreturn_t vdpu346_irq_handler(struct rkvdec_ctx *ctx)
++{
++	struct rkvdec_core *core = ctx->core;
++	u32 status = readl(core->regs + VDPU381_REG_STA_INT);
++	u32 control;
++
++	if (!(status & VDPU346_IRQ_RAW))
++		return IRQ_NONE;
++
++	control = readl(core->regs + VDPU381_REG_IMPORTANT_EN);
++	writel(control | VDPU381_DEC_IRQ_DISABLE, core->regs + VDPU381_REG_IMPORTANT_EN);
++	writel(0, core->regs + VDPU381_REG_STA_INT);
++
++	/* A running watchdog owns recovery if cancellation loses the race. */
++	if (cancel_delayed_work(&core->watchdog_work)) {
++		if (vdpu346_decode_succeeded(status)) {
++			vdpu346_finish(ctx, VB2_BUF_STATE_DONE);
++		} else {
++			dev_err_ratelimited(core->dev, "Decode failed: status=%#x\n", status);
++			vdpu346_finish(ctx, VB2_BUF_STATE_ERROR);
++		}
++	}
++
++	return IRQ_HANDLED;
++}
++
+ static irqreturn_t rk3399_irq_handler(struct rkvdec_ctx *ctx)
+ {
+ 	struct rkvdec_core *core = ctx->core;
+@@ -2030,8 +2130,19 @@ static irqreturn_t rkvdec_irq_handler(int irq, void *priv)
+ {
+ 	irqreturn_t ret;
+ 	struct rkvdec_core *core = priv;
+-	struct rkvdec_ctx *ctx = core->curr_ctx;
+-	const struct rkvdec_variant *variant = ctx->dev->variant;
++	struct rkvdec_ctx *ctx;
++	const struct rkvdec_variant *variant = core->variant;
++
++	if (variant->ops->reset) {
++		guard(mutex)(&core->job_lock);
++		if (!core->job_active)
++			return IRQ_HANDLED;
++		return variant->ops->irq_handler(core->curr_ctx);
++	}
++
++	ctx = READ_ONCE(core->curr_ctx);
++	if (!ctx)
++		return IRQ_NONE;
+ 
+ 	ret = variant->ops->irq_handler(ctx);
+ 
+@@ -2117,6 +2228,16 @@ static void rkvdec_watchdog_func(struct work_struct *work)
+ 
+ 	core = container_of(to_delayed_work(work), struct rkvdec_core,
+ 			      watchdog_work);
++	if (core->variant->ops->reset) {
++		guard(mutex)(&core->job_lock);
++		if (!core->job_active)
++			return;
++		writel(readl(core->regs + VDPU381_REG_IMPORTANT_EN) |
++		       VDPU381_DEC_IRQ_DISABLE, core->regs + VDPU381_REG_IMPORTANT_EN);
++		dev_err_ratelimited(core->dev, "Frame processing timed out; resetting decoder\n");
++		vdpu346_finish(core->curr_ctx, VB2_BUF_STATE_ERROR);
++		return;
++	}
+ 	ctx = core->curr_ctx;
+ 	if (ctx) {
+ 		dev_err(core->dev, "Frame processing timed out!\n");
+@@ -2175,12 +2296,19 @@ static const struct rkvdec_variant_ops vdpu381_variant_ops = {
+ 	.flatten_matrices = transpose_and_flatten_matrices,
+ };
+ 
++static const struct rkvdec_variant_ops vdpu346_variant_ops = {
++	.irq_handler = vdpu346_irq_handler,
++	.reset = vdpu346_reset,
++	.colmv_size = rkvdec_colmv_size,
++	.flatten_matrices = transpose_and_flatten_matrices,
++};
++
+ static const struct rkvdec_variant vdpu346_variant = {
+ 	.coded_fmts = vdpu346_coded_fmts,
+ 	.num_coded_fmts = ARRAY_SIZE(vdpu346_coded_fmts),
+ 	.rcb_sizes = vdpu381_rcb_sizes,
+ 	.num_rcb_sizes = ARRAY_SIZE(vdpu381_rcb_sizes),
+-	.ops = &vdpu381_variant_ops,
++	.ops = &vdpu346_variant_ops,
+ };
+ 
+ static const struct rkvdec_variant vdpu381_variant = {
+@@ -2236,6 +2364,11 @@ static const struct of_device_id of_rkvdec_match[] = {
+ 		.compatible = "rockchip,rk3568-vdec",
+ 		.data = &vdpu346_variant,
+ 	},
++	{
++		/* Vendor devicetree name used by the Quartz64/RK3568 images. */
++		.compatible = "rockchip,rkv-decoder-rk3568",
++		.data = &vdpu346_variant,
++	},
+ 	{
+ 		.compatible = "rockchip,rk3588-vdec",
+ 		.data = &vdpu381_variant,
+@@ -2308,14 +2441,49 @@ static int rkvdec_core_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	core->dev = &pdev->dev;
++	core->variant = variant;
++	mutex_init(&core->job_lock);
+ 	INIT_DELAYED_WORK(&core->watchdog_work, rkvdec_watchdog_func);
+ 
+-	ret = devm_clk_bulk_get_all_enabled(&pdev->dev, &core->clocks);
++	if (variant->ops->reset)
++		ret = devm_clk_bulk_get_all(&pdev->dev, &core->clocks);
++	else
++		ret = devm_clk_bulk_get_all_enabled(&pdev->dev, &core->clocks);
+ 	if (ret < 0)
+ 		return ret;
+ 	core->num_clocks = ret;
+ 
+ 	core->axi_clk = devm_clk_get(&pdev->dev, "axi");
++	if (IS_ERR(core->axi_clk))
++		core->axi_clk = devm_clk_get(&pdev->dev, "aclk_vcodec");
++	if (IS_ERR(core->axi_clk))
++		return dev_err_probe(core->dev, PTR_ERR(core->axi_clk), "Missing AXI clock\n");
++
++	if (variant->ops->reset) {
++		static const char * const mainline_names[] = {
++			"axi", "ahb", "core", "cabac", "hevc_cabac"
++		};
++		static const char * const vendor_names[] = {
++			"video_a", "video_h", "video_core", "video_cabac", "video_hevc_cabac"
++		};
++		const char * const *names = mainline_names;
++		unsigned int i;
++
++		if (of_property_match_string(pdev->dev.of_node, "reset-names", "axi") < 0)
++			names = vendor_names;
++
++		core->resets = devm_kcalloc(core->dev, ARRAY_SIZE(mainline_names),
++					    sizeof(*core->resets), GFP_KERNEL);
++		if (!core->resets)
++			return -ENOMEM;
++		for (i = 0; i < ARRAY_SIZE(mainline_names); i++)
++			core->resets[i].id = names[i];
++		ret = devm_reset_control_bulk_get_exclusive(core->dev,
++							  ARRAY_SIZE(mainline_names),
++							  core->resets);
++		if (ret)
++			return dev_err_probe(core->dev, ret, "Missing decoder resets\n");
++	}
+ 
+ 	if (variant->has_single_reg_region) {
+ 		core->regs = devm_platform_ioremap_resource(pdev, 0);
+@@ -2323,6 +2491,8 @@ static int rkvdec_core_probe(struct platform_device *pdev)
+ 			return PTR_ERR(core->regs);
+ 	} else {
+ 		core->regs = devm_platform_ioremap_resource_byname(pdev, "function");
++		if (IS_ERR(core->regs))
++			core->regs = devm_platform_ioremap_resource_byname(pdev, "regs");
+ 		if (IS_ERR(core->regs))
+ 			return PTR_ERR(core->regs);
+ 
+@@ -2335,7 +2505,7 @@ static int rkvdec_core_probe(struct platform_device *pdev)
+ 			core->cache = NULL;
+ 	}
+ 
+-	if (iommu_get_domain_for_dev(&pdev->dev)) {
++	if (!variant->ops->reset && iommu_get_domain_for_dev(&pdev->dev)) {
+ 		core->empty_domain = iommu_paging_domain_alloc(core->dev);
+ 
+ 		if (IS_ERR(core->empty_domain)) {
+@@ -2365,6 +2535,11 @@ static int rkvdec_core_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	core->sram_pool = of_gen_pool_get(pdev->dev.of_node, "sram", 0);
++	if (!core->sram_pool)
++		core->sram_pool = of_gen_pool_get(pdev->dev.of_node, "rockchip,sram", 0);
++	/* The current SRAM allocator does not reserve device-addressable IOVAs. */
++	if (variant->ops->reset)
++		core->sram_pool = NULL;
+ 	if (!core->sram_pool && variant->num_rcb_sizes > 0)
+ 		dev_info(&pdev->dev, "No sram node, RCB will be stored in RAM\n");
+ 
+@@ -2405,6 +2580,29 @@ static void rkvdec_core_remove(struct platform_device *pdev)
+ }
+ 
+ #ifdef CONFIG_PM
++static int rkvdec_core_prepare(struct device *dev)
++{
++	struct rkvdec_core *core = dev_get_drvdata(dev);
++
++	if (core->variant->ops->reset) {
++		guard(mutex)(&core->job_lock);
++		if (READ_ONCE(core->curr_ctx))
++			return -EBUSY;
++		core->suspending = true;
++	}
++	return 0;
++}
++
++static void rkvdec_core_complete(struct device *dev)
++{
++	struct rkvdec_core *core = dev_get_drvdata(dev);
++
++	if (core->variant->ops->reset) {
++		guard(mutex)(&core->job_lock);
++		core->suspending = false;
++	}
++}
++
+ static int rkvdec_core_runtime_resume(struct device *dev)
+ {
+ 	struct rkvdec_core *core = dev_get_drvdata(dev);
+@@ -2416,6 +2614,7 @@ static int rkvdec_core_runtime_suspend(struct device *dev)
+ {
+ 	struct rkvdec_core *core = dev_get_drvdata(dev);
+ 
++	WRITE_ONCE(core->initialized, false);
+ 	clk_bulk_disable_unprepare(core->num_clocks, core->clocks);
+ 
+ 	return 0;
+@@ -2423,6 +2622,10 @@ static int rkvdec_core_runtime_suspend(struct device *dev)
+ #endif
+ 
+ static const struct dev_pm_ops rkvdec_core_pm_ops = {
++#ifdef CONFIG_PM
++	.prepare = rkvdec_core_prepare,
++	.complete = rkvdec_core_complete,
++#endif
+ 	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+ 				pm_runtime_force_resume)
+ 	SET_RUNTIME_PM_OPS(rkvdec_core_runtime_suspend,
+@@ -2436,6 +2639,7 @@ static struct platform_driver rkvdec_core_pdrv = {
+ 		   .name = "rkvdec-core",
+ 		   .of_match_table = of_rkvdec_match,
+ 		   .pm = &rkvdec_core_pm_ops,
++		   .suppress_bind_attrs = true,
+ 	},
+ };
+ 
+@@ -2450,6 +2654,12 @@ static int rkvdec_bind(struct device *dev)
+ 		return ret;
+ 	}
+ 
++	if (rkvdec->variant->ops->reset && rkvdec->core_count != 1) {
++		ret = -EOPNOTSUPP;
++		dev_err(dev, "VDPU346 recovery requires a single decoder core\n");
++		goto err_unbind;
++	}
++
+ 	ret = rkvdec_v4l2_init(rkvdec);
+ 	if (ret)
+ 		goto err_unbind;
+@@ -2547,6 +2757,7 @@ static struct platform_driver rkvdec_pdrv = {
+ 	.remove = rkvdec_remove,
+ 	.driver = {
+ 		.name = "rkvdec",
++		.suppress_bind_attrs = true,
+ 	},
+ };
+ 
+diff --git a/drivers/media/platform/rockchip/rkvdec/rkvdec.h b/drivers/media/platform/rockchip/rkvdec/rkvdec.h
+index a5c888bae..28beb7231 100644
+--- a/drivers/media/platform/rockchip/rkvdec/rkvdec.h
++++ b/drivers/media/platform/rockchip/rkvdec/rkvdec.h
+@@ -31,6 +31,7 @@
+ #define RKVDEC_8K_PIXELS		(7680 * 4320)
+ 
+ struct rkvdec_ctx;
++struct rkvdec_core;
+ struct rkvdec_rcb_config;
+ 
+ struct rkvdec_ctrl_desc {
+@@ -74,6 +75,7 @@ vb2_to_rkvdec_decoded_buf(struct vb2_buffer *buf)
+ 
+ struct rkvdec_variant_ops {
+ 	irqreturn_t (*irq_handler)(struct rkvdec_ctx *ctx);
++	int (*reset)(struct rkvdec_core *core);
+ 	u32 (*colmv_size)(u16 width, u16 height);
+ 	u32 (*hor_stride)(u32 bytesperline);
+ 	void (*flatten_matrices)(u8 *output, const u8 *input, int matrices, int row_length);
+@@ -130,6 +132,13 @@ struct rkvdec_coded_fmt_desc {
+ 
+ struct rkvdec_core {
+ 	struct device *dev;
++	const struct rkvdec_variant *variant;
++	struct mutex job_lock;
++	struct reset_control_bulk_data *resets;
++	bool job_active;
++	bool failed;
++	bool suspending;
++	bool initialized;
+ 	struct clk_bulk_data *clocks;
+ 	unsigned int num_clocks;
+ 	struct clk *axi_clk;

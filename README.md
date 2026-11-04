@@ -25,7 +25,7 @@ it; it does not modify it.
 |---|---|
 | `jellyfin-flatpak/` | A Flatpak of Jellyfin Desktop (JMP) 2.0.0 with patched FFmpeg 8.1.1 and mpv 0.41.0 using the V4L2 Request stateless hwaccel (`v4l2request`). Personal app ID `dev.jannik.JellyfinDesktopV4L2`. |
 | `vacuumtube-vaapi/` | **Not** a Flatpak.  A host-run script/patch set that builds the forked `libva-v4l2-request` VA-API driver (VP9 Profile 0) and installs it as a user Flatpak override pointed only at the official Flathub `rocks.shy.VacuumTube`.  VacuumTube itself is not forked or rebuilt. |
-| `kernel-patches-dist/` | Placeholder for a future pass. **Not implemented.**  Will eventually package the kernel-side patches from SRC as an installable artifact. |
+| `kernel-patches-dist/` | Builds and deploys the pinned `7.3.0-quartz64-vp9+` kernel (`chewitt/linux` + two rkvdec patches), including the initramfs module swap and a confirmation-driven boot-partition deployment with a `.stock` rollback copy. |
 
 ### Why the split
 
@@ -61,7 +61,8 @@ the repo owner for the matching bundle and driver.
 ### Before you start
 
 - The board must be running the `7.3.0-quartz64-vp9+` kernel with a bound
-  `rkvdec` device.  Kernel work is **not** part of this repository yet.
+  `rkvdec` device.  If it is not, build and deploy it with the separate,
+  manual procedure in `kernel-patches-dist/`.
 - Use a Wayland session.  Chromium's zero-copy video import does not work on
   X11 in this stack.
 - Have Flathub configured and the official VacuumTube app installed:
@@ -267,13 +268,12 @@ in `preflight-state.log`.
   board's existing SSH keys/agent.  `verify-userland.sh` only prompts for
   `sudo` interactively when the board requires it.
 
-## Non-goals for this pass
+## Non-goals
 
 - Not a Flathub submission for JMP.
 - No fork or rebuild of VacuumTube.
-- `kernel-patches-dist/` is not populated beyond its README.
-- No kernel, DTB, bootloader, or boot-entry changes.  Only userland packages,
-  Flatpaks, and Flatpak overrides are in scope.
+- Kernel deployment is deliberately manual and confirmation-driven.  There is
+  no automated kernel uninstall/reinstall verification script.
 
 ## License
 

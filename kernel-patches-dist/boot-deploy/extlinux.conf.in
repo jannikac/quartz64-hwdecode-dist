@@ -1,0 +1,15 @@
+timeout 5
+default quartz64-vp9-test
+menu title boot prev kernel
+
+label postmarketOS
+	kernel /vmlinuz
+	fdt /rk3566-quartz64-b.dtb
+	initrd /initramfs
+	append quiet splash plymouth.ignore-serial-consoles plymouth.prefer-fbcon earlycon pmos.force-partition-resize pmos_boot_uuid=@PMOS_BOOT_UUID@ pmos_root_uuid=@PMOS_ROOT_UUID@ pmos_rootfsopts=defaults cma=256M
+
+label quartz64-vp9-test
+	kernel /vmlinuz-vp9
+	fdt /rk3566-quartz64-b-vp9.dtb
+	initrd /initramfs-vp9
+	append earlycon pmos_boot_uuid=@PMOS_BOOT_UUID@ pmos_root_uuid=@PMOS_ROOT_UUID@ pmos_rootfsopts=defaults cma=256M console=ttyS2,1500000n8 loglevel=7 panic=20
