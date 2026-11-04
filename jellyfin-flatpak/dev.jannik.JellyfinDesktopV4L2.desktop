@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Jellyfin Desktop (V4L2 Request)
+GenericName=Jellyfin Client
+Comment=Personal Jellyfin Desktop build using the V4L2 Request stateless decoder
+Exec=jellyfin-desktop
+Icon=org.jellyfin.JellyfinDesktop
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=Jellyfin;Media;Player;V4L2;rkvdec;
+StartupNotify=true
+StartupWMClass=jellyfin-desktop

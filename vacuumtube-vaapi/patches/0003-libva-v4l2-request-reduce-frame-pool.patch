@@ -1,0 +1,13 @@
+diff --git a/src/context.c b/src/context.c
+index 15dee3c..942b5f1 100644
+--- a/src/context.c
++++ b/src/context.c
+@@ -60,7 +60,7 @@
+  * without recycling — true free-slot recycling is the obvious next
+  * step but is not required for VP9 at typical streaming rates.
+  */
+-#define POOL_MIN_BUFFERS	64u
++#define POOL_MIN_BUFFERS	32u
+ 
+ static int detect_capture_format(struct request_data *driver_data)
+ {

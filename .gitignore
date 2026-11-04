@@ -1,0 +1,21 @@
+# flatpak-builder
+.flatpak-builder/
+build-dir/
+jellyfin-flatpak/repo/
+jellyfin-flatpak/build-dir/
+jellyfin-flatpak/dist/
+
+# exported bundles
+*.flatpak
+*.flatpak.sha256
+
+# local build scratch
+build/
+out/
+*.log
+!preflight-state.log
+__pycache__/
+
+# editor/OS noise
+.direnv/
+.DS_Store

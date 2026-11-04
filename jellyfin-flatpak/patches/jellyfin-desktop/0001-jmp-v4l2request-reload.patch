@@ -1,0 +1,100 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 93782e5..679fe06 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -131,7 +131,7 @@ add_executable(${MAIN_TARGET} WIN32 MACOSX_BUNDLE ${MAIN_SRCS} ${BUNDLED_FILES}
+ std_target_properties(${MAIN_TARGET})
+ set_target_properties(${MAIN_TARGET} PROPERTIES
+   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/bundle/osx/Info.plist.in
+-  INSTALL_RPATH "${QTROOT}/lib"
++  INSTALL_RPATH "/app/lib"
+   OUTPUT_NAME ${MAIN_NAME}
+ )
+ copy_resources(${MAIN_TARGET})
+diff --git a/src/player/PlayerComponent.cpp b/src/player/PlayerComponent.cpp
+index b53e684..2f6e053 100644
+--- a/src/player/PlayerComponent.cpp
++++ b/src/player/PlayerComponent.cpp
+@@ -5,6 +5,7 @@
+ #include <QCoreApplication>
+ #include <QGuiApplication>
+ #include <QDebug>
++#include <QStandardPaths>
+ #include "display/DisplayComponent.h"
+ #include "settings/SettingsComponent.h"
+ #include "system/SystemComponent.h"
+@@ -94,6 +95,9 @@ void PlayerComponent::initializeMpv()
+ 
+   mpv_request_log_messages(m_mpv->mpv(), "terminal-default");
+   m_mpv->setProperty("msg-level", "all=v");
++  QString ipcDir = QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation);
++  QDir().mkpath(ipcDir);
++  m_mpv->setProperty("input-ipc-server", ipcDir + "/jmp-video.sock");
+ 
+   mpv_set_wakeup_callback(m_mpv->mpv(), wakeup_cb, this);
+ 
+@@ -1444,7 +1448,7 @@ void PlayerComponent::setVideoConfiguration()
+   QString hwdecMode = "no";
+   QString hwdecVTFormat = "no";
+   if (hardwareDecodingMode == "enabled")
+-    hwdecMode = "auto";
++    hwdecMode = "v4l2request";
+   else if (hardwareDecodingMode == "osx_compat")
+   {
+     hwdecMode = "auto";
+@@ -1452,7 +1456,7 @@ void PlayerComponent::setVideoConfiguration()
+   }
+   else if (hardwareDecodingMode == "copy")
+   {
+-    hwdecMode = "auto-copy";
++    hwdecMode = "v4l2request";
+   }
+   m_mpv->setProperty( "hwdec", hwdecMode);
+   m_mpv->setProperty( "hwdec-image-format", hwdecVTFormat);
+diff --git a/src/ui/webview.qml b/src/ui/webview.qml
+index 9b2a50e..2efa887 100644
+--- a/src/ui/webview.qml
++++ b/src/ui/webview.qml
+@@ -23,6 +23,7 @@ Window
+   property string debugInfo: ""
+   property string videoInfo: ""
+   property string webUrl: ""
++  property int nativeShellReloads: 0
+ 
+   signal reloadWebClient()
+ 
+@@ -272,7 +273,8 @@ Window
+       }
+       else if (loadingInfo.status == WebEngineView.LoadSucceededStatus)
+       {
+-        console.log("WebEngineLoadRequest success: " + loadingInfo.url);
++        console.log("WebEngineLoadRequest success");
++        nativeShellCheckTimer.restart();
+       }
+       else if (loadingInfo.status == WebEngineView.LoadFailedStatus)
+       {
+@@ -315,6 +317,24 @@ Window
+     }
+   }
+ 
++  Timer
++  {
++    id: nativeShellCheckTimer
++    interval: 2000
++    repeat: false
++    onTriggered:
++    {
++      web.runJavaScript("typeof window.NativeShell", function(result) {
++        if (result === "undefined" && mainWindow.nativeShellReloads < 3)
++        {
++          mainWindow.nativeShellReloads += 1;
++          console.log("NativeShell missing; reloading web client");
++          web.reload();
++        }
++      })
++    }
++  }
++
+   Text
+   {
+     id: errorLabel

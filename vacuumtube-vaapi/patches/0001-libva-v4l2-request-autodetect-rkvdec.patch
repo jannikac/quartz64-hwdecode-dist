@@ -1,0 +1,118 @@
+diff --git a/src/request.c b/src/request.c
+index b54c0f5..3b5dc64 100644
+--- a/src/request.c
++++ b/src/request.c
+@@ -51,8 +51,70 @@
+ 
+ #include <sys/ioctl.h>
+ 
++#include <linux/media.h>
+ #include <linux/videodev2.h>
+ 
++/*
++ * The mainline rkvdec video node is always named "rkvdec" in QUERYCAP,
++ * and its media device carries the same model name.  Discover both so
++ * the driver works without hard-coded device numbers (which change when
++ * other V4L2 devices probe first) and inside the Flatpak sandbox.
++ *
++ * Explicit LIBVA_V4L2_REQUEST_VIDEO_PATH / _MEDIA_PATH values always win.
++ */
++static const char *find_rkvdec_video(char *path, size_t path_len)
++{
++	struct v4l2_capability capability;
++	int fd, i;
++
++	for (i = 0; i < 64; i++) {
++		snprintf(path, path_len, "/dev/video%d", i);
++
++		fd = open(path, O_RDWR | O_NONBLOCK);
++		if (fd < 0)
++			continue;
++
++		memset(&capability, 0, sizeof(capability));
++		if (ioctl(fd, VIDIOC_QUERYCAP, &capability) == 0 &&
++		    (strstr((char *)capability.driver, "rkvdec") != NULL ||
++		     strstr((char *)capability.card, "rkvdec") != NULL)) {
++			close(fd);
++			return path;
++		}
++
++		close(fd);
++	}
++
++	return NULL;
++}
++
++static const char *find_rkvdec_media(char *path, size_t path_len)
++{
++	struct media_device_info info;
++	int fd, i;
++
++	for (i = 0; i < 64; i++) {
++		snprintf(path, path_len, "/dev/media%d", i);
++
++		fd = open(path, O_RDWR | O_NONBLOCK);
++		if (fd < 0)
++			continue;
++
++		memset(&info, 0, sizeof(info));
++		if (ioctl(fd, MEDIA_IOC_DEVICE_INFO, &info) == 0 &&
++		    (strstr((char *)info.driver, "rkvdec") != NULL ||
++		     strstr((char *)info.model, "rkvdec") != NULL ||
++		     strstr((char *)info.driver, "rockchip") != NULL)) {
++			close(fd);
++			return path;
++		}
++
++		close(fd);
++	}
++
++	return NULL;
++}
++
+ /* Set default visibility for the init function only. */
+ VAStatus __attribute__((visibility("default")))
+ VA_DRIVER_INIT_FUNC(VADriverContextP context);
+@@ -66,8 +128,10 @@ VAStatus VA_DRIVER_INIT_FUNC(VADriverContextP context)
+ 	unsigned int capabilities_required;
+ 	int video_fd = -1;
+ 	int media_fd = -1;
+-	char *video_path;
+-	char *media_path;
++	char video_path_buf[32];
++	char media_path_buf[32];
++	const char *video_path;
++	const char *media_path;
+ 	int rc;
+ 
+ 	context->version_major = VA_MAJOR_VERSION;
+@@ -147,8 +211,12 @@ VAStatus VA_DRIVER_INIT_FUNC(VADriverContextP context)
+ 			 IMAGE_ID_OFFSET);
+ 
+ 	video_path = getenv("LIBVA_V4L2_REQUEST_VIDEO_PATH");
+-	if (video_path == NULL)
+-		video_path = "/dev/video0";
++	if (video_path == NULL) {
++		video_path = find_rkvdec_video(video_path_buf,
++					       sizeof(video_path_buf));
++		if (video_path == NULL)
++			video_path = "/dev/video0";
++	}
+ 
+ 	video_fd = open(video_path, O_RDWR | O_NONBLOCK);
+ 	if (video_fd < 0)
+@@ -169,8 +237,12 @@ VAStatus VA_DRIVER_INIT_FUNC(VADriverContextP context)
+ 	}
+ 
+ 	media_path = getenv("LIBVA_V4L2_REQUEST_MEDIA_PATH");
+-	if (media_path == NULL)
+-		media_path = "/dev/media0";
++	if (media_path == NULL) {
++		media_path = find_rkvdec_media(media_path_buf,
++					       sizeof(media_path_buf));
++		if (media_path == NULL)
++			media_path = "/dev/media0";
++	}
+ 
+ 	media_fd = open(media_path, O_RDWR | O_NONBLOCK);
+ 	if (media_fd < 0)

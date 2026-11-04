@@ -1,0 +1,176 @@
+app-id: dev.jannik.JellyfinDesktopV4L2
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+base: io.qt.qtwebengine.BaseApp
+base-version: '6.11'
+command: jellyfin-desktop
+
+finish-args:
+  # rkvdec exposes /dev/video*, /dev/media* and /dev/dri/*.  --device=dri is
+  # not enough for the V4L2 media controller, so this personal build accepts
+  # --device=all.  See the README "Sandbox" section.
+  - --device=all
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --share=ipc
+  - --share=network
+  - --talk-name=org.freedesktop.ScreenSaver
+  - --own-name=org.mpris.MediaPlayer2.JellyfinDesktop.*
+  # The SRC launcher used this to avoid a stale Qt QML cache hiding the
+  # NativeShell injection.  Keep it inside the Flatpak too.
+  - --env=QML_DISABLE_DISK_CACHE=1
+
+cleanup:
+  - '*.a'
+  - '*.la'
+  - /include
+  - /lib/cmake
+  - /lib/metatypes
+  - /lib/pkgconfig
+  - /lib/sbom
+  - /mkspecs
+  - /share/man
+
+modules:
+  # ------------------------------------------------------------------------
+  # 1. FFmpeg with the V4L2 Request stateless hwaccel.
+  #
+  # This is a glibc build for the KDE/Freedesktop runtime, not the Alpine
+  # musl parity build from SRC.  QtWebEngine in the base app has no dynamic
+  # libav* dependency (see README "Milestone 1"), so the old one-FFmpeg-for-
+  # the-whole-process constraint does not apply here.
+  # ------------------------------------------------------------------------
+  - name: ffmpeg-v4l2
+    buildsystem: simple
+    build-commands:
+      - >
+        ./configure
+        --prefix=/app
+        --disable-static
+        --enable-shared
+        --disable-stripping
+        --disable-doc
+        --disable-htmlpages
+        --disable-manpages
+        --disable-podpages
+        --disable-txtpages
+        --enable-gpl
+        --enable-version3
+        --enable-pthreads
+        --enable-pic
+        --disable-autodetect
+        --enable-zlib
+        --enable-libdrm
+        --enable-v4l2_m2m
+        --enable-v4l2-request
+        --extra-ldflags=-Wl,-rpath,/app/lib
+      - make -j"${FLATPAK_BUILDER_N_JOBS:-$(nproc)}"
+      - make install
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
+        sha256: b6863adde98898f42602017462871b5f6333e65aec803fdd7a6308639c52edf3
+      - type: patch
+        path: patches/ffmpeg/0001-v4l2-drmprime.patch
+      - type: patch
+        path: patches/ffmpeg/0001-v4l2-request.patch
+      - type: patch
+        path: patches/ffmpeg/0001-vf-deinterlace-v4l2m2m.patch
+      - type: patch
+        path: patches/ffmpeg/0001-wip-hevc-Add-support-for-sps-st-rps-control.patch
+
+  # ------------------------------------------------------------------------
+  # 2. Jellyfin Desktop v2.0.0 + patched libmpv/mpvqt.
+  # ------------------------------------------------------------------------
+  - name: jellyfin-desktop
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DUSE_STATIC_MPVQT=OFF
+      - -DCHECK_FOR_UPDATES=OFF
+      - -DCMAKE_DISABLE_FIND_PACKAGE_X11=TRUE
+    post-install:
+      - rm -f /app/share/applications/org.jellyfin.JellyfinDesktop.desktop
+      - rm -f /app/share/metainfo/org.jellyfin.JellyfinDesktop.appdata.xml
+      - install -Dm644 dev.jannik.JellyfinDesktopV4L2.desktop /app/share/applications/dev.jannik.JellyfinDesktopV4L2.desktop
+    sources:
+      - type: git
+        url: https://github.com/jellyfin/jellyfin-media-player.git
+        tag: v2.0.0
+        commit: 1634d3d263b881dccc62bf278d1289b471ec7af1
+        disable-submodules: true
+      - type: patch
+        path: patches/jellyfin-desktop/0001-jmp-v4l2request-reload.patch
+      - type: file
+        path: dev.jannik.JellyfinDesktopV4L2.desktop
+    modules:
+      - name: mpvqt
+        buildsystem: cmake-ninja
+        config-opts:
+          - -DCMAKE_BUILD_TYPE=Release
+          - -DBUILD_TESTING=OFF
+        sources:
+          - type: git
+            url: https://invent.kde.org/libraries/mpvqt.git
+            commit: 2ebbd38bf65d01be9c55d673ecd43c8bb9a6fc8e
+        modules:
+          - name: mpv-v4l2
+            buildsystem: meson
+            config-opts:
+              - -Dlibmpv=true
+              - -Dv4l2request=enabled
+              - -Dwayland=enabled
+              - -Ddrm=enabled
+              - -Dx11=disabled
+              - -Dlua=disabled
+              - -Djavascript=disabled
+              - -Duchardet=disabled
+              - -Dlibarchive=disabled
+              - -Dalsa=disabled
+              - -Dbuild-date=false
+              - -Dmanpage-build=disabled
+              - -Dhtml-build=disabled
+              - -Dpdf-build=disabled
+              - -Dc_link_args=-Wl,-rpath,/app/lib
+            cleanup:
+              - /share/applications
+              - /share/bash-completion
+              - /share/doc
+              - /share/fish
+              - /share/icons
+              - /share/zsh
+            sources:
+              - type: archive
+                url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz
+                sha256: ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209
+              - type: patch
+                path: patches/mpv/0001-mpv-v4l2request.patch
+            modules:
+              - name: libplacebo
+                buildsystem: meson
+                config-opts:
+                  - -Ddemos=false
+                cleanup:
+                  - /include
+                  - /lib/pkgconfig
+                sources:
+                  - type: git
+                    url: https://github.com/haasn/libplacebo.git
+                    tag: v7.351.0
+                    commit: 3188549fba13bbdf3a5a98de2a38c2e71f04e21e
+                  - type: patch
+                    path: vulkan-python-xml.patch
+
+              - name: libass
+                buildsystem: autotools
+                config-opts:
+                  - --disable-static
+                  - --enable-asm
+                  - --enable-harfbuzz
+                  - --enable-fontconfig
+                sources:
+                  - type: archive
+                    url: https://github.com/libass/libass/releases/download/0.17.4/libass-0.17.4.tar.gz
+                    sha256: a886b3b80867f437bc55cff3280a652bfa0d37b43d2aff39ddf3c4f288b8c5a8

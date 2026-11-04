@@ -1,0 +1,36 @@
+# preflight-state.log generated 2026-11-04T16:51:50Z on the Quartz64-B
+# host: Linux 7.3.0-quartz64-vp9+ aarch64
+
+===== apk list --installed | grep -E ffmpeg-v4l2|mpv-v4l2|jellyfin-desktop =====
+ffmpeg-v4l2-8.1.1-r3 aarch64 {ffmpeg-v4l2} (GPL-3.0-or-later) [installed]
+jellyfin-desktop-2.0.0-r3 aarch64 {jellyfin-desktop} (GPL-2.0-or-later) [installed]
+mpv-v4l2-0.41.0-r1 aarch64 {mpv-v4l2} (GPL-2.0-or-later) [installed]
+
+===== flatpak list --user =====
+
+===== flatpak list (all installations) =====
+org.freedesktop.Platform	25.08	flathub	freedesktop-sdk-25.08.19	system
+org.freedesktop.Platform.GL.default	25.08	flathub	26.2.5	system
+org.freedesktop.Platform.GL.default	25.08-extra	flathub	26.2.5	system
+org.freedesktop.Platform.codecs-extra	25.08-extra	flathub		system
+org.jellyfin.JellyfinDesktop	stable	flathub	2.0.0	system
+org.kde.KStyle.Adwaita	6.11	flathub		system
+org.kde.Platform	6.11	flathub		system
+rocks.shy.VacuumTube	stable	flathub	2.0.1	system
+
+===== flatpak override --user --show rocks.shy.VacuumTube =====
+[Context]
+filesystems=/home/jannik/.local/lib/v4l2-request-25.08:ro;
+
+[Environment]
+LIBVA_DRIVER_NAME=v4l2_request
+LIBVA_DRIVERS_PATH=/home/jannik/.local/lib/v4l2-request-25.08/lib/dri
+
+===== VacuumTube VA-API driver files =====
+total 80
+-rwxr-xr-x    1 jannik   jannik       77912 Nov  3 23:38 v4l2_request_drv_video.so
+
+===== free space =====
+Filesystem                Size      Used Available Use% Mounted on
+/dev/mmcblk0p2           28.6G     26.3G    856.8M  97% /
+/dev/mmcblk0p2           28.6G     26.3G    856.8M  97% /

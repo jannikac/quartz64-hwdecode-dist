@@ -1,0 +1,36 @@
+diff --git a/src/surface.c b/src/surface.c
+index f20c4c3..a563b5d 100644
+--- a/src/surface.c
++++ b/src/surface.c
+@@ -432,18 +432,20 @@ VAStatus RequestExportSurfaceHandle(VADriverContextP context,
+ 		return VA_STATUS_ERROR_INVALID_SURFACE;
+ 
+ 	/*
+-	 * vaExportSurfaceHandle is meaningful only for surfaces that have
+-	 * been (or are about to be) decoded into. Lazy-binding an empty
+-	 * CAPTURE buffer here looks attractive — it lets mpv --hwdec=vaapi
+-	 * pass its zero-copy capability probe — but the exported dmabuf
+-	 * then points at uninitialised memory and the GL display path
+-	 * renders a solid blue / green frame until the surface is finally
+-	 * used as a decode target (which may never happen for the probe
+-	 * surface itself). Better to fail the probe cleanly so the client
+-	 * falls back to vaapi-copy (which works pixel-perfect) than to
+-	 * succeed with broken visual output.
++	 * Chromium's VaapiVideoDecoder exports each VA surface as a native
++	 * pixmap immediately after vaCreateSurfaces(), before any decode has
++	 * been submitted.  Bind a CAPTURE buffer on demand so the export
++	 * succeeds; the buffer is filled in place when the surface later
++	 * becomes the decode target.
++	 *
++	 * The fork used to fail this case so mpv --hwdec=vaapi fell back to
++	 * the pixel-correct vaapi-copy path.  That makes the Chromium path
++	 * unusable because Chromium allocates its whole output frame pool
++	 * this way.  Probe surfaces can still display uninitialised data,
++	 * but Chromium only displays surfaces after decoding into them.
+ 	 */
+-	if (surface_object->destination_index == SURFACE_INDEX_UNASSIGNED)
++	if (surface_object->destination_index == SURFACE_INDEX_UNASSIGNED &&
++	    request_bind_destination_buffer(driver_data, surface_object) < 0)
+ 		return VA_STATUS_ERROR_OPERATION_FAILED;
+ 
+ 	export_fds_count = surface_object->destination_buffers_count;
