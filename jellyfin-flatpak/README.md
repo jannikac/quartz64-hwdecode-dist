@@ -76,6 +76,7 @@ library rather than dynamically linking a public FFmpeg.
 | MpvQt | `invent.kde.org/libraries/mpvqt`, commit `2ebbd38bf65d01be9c55d673ecd43c8bb9a6fc8e` |
 | libplacebo | tag `v7.351.0`, commit `3188549fba13bbdf3a5a98de2a38c2e71f04e21e` |
 | libass | 0.17.4, SHA-256 `a886b3b80867f437bc55cff3280a652bfa0d37b43d2aff39ddf3c4f288b8c5a8` |
+| UAPI overlay | `uapi-overlay/linux/v4l2-controls.h`, SHA-256 `01c873295c27b52d85aad394ac5afe0c02603ca8f689181f0d129383c67108e9` |
 | Runtime / base | `org.kde.Platform//6.11`, `io.qt.qtwebengine.BaseApp//6.11` |
 | Target | aarch64, Pine64 Quartz64 Model B, RK3566 `rkvdec` |
 
@@ -146,10 +147,22 @@ dist/dev.jannik.JellyfinDesktopV4L2.flatpak
 dist/dev.jannik.JellyfinDesktopV4L2.flatpak.sha256
 ```
 
-If the SDK's UAPI headers are too old for the V4L2 Request stateless controls,
-build against a newer `linux/videodev2.h`. Do not replace the board kernel or
-copy kernel patches into this repository; the kernel side is deliberately
-deferred to `kernel-patches-dist/`.
+FFmpeg's `--enable-v4l2-request` requires `linux/media.h`, the stateless V4L2
+controls in `<linux/v4l2-controls.h>`, `V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF`,
+`libdrm`, and `libudev`.  The manifest enables `--enable-libdrm` and
+`--enable-libudev` explicitly because it also uses `--disable-autodetect`.
+
+The HEVC SPS short-term-RPS patch additionally uses the
+`V4L2_CID_STATELESS_HEVC_EXT_SPS_ST_RPS` control and its structs, which are in
+the pinned Quartz64-B kernel but not in mainline Linux 6.18 headers.
+`uapi-overlay/linux/v4l2-controls.h` includes the real SDK header with
+`#include_next` and adds only those missing definitions.  The manifest passes
+`--extra-cflags=-I$PWD/uapi-overlay`.  This avoids copying the kernel tree or
+replacing the SDK headers.  The four-patch FFmpeg source was configured and
+compiled on the host with this overlay before this repository was written.
+
+Do not replace the board kernel or copy kernel patches into this repository;
+the kernel side is deliberately deferred to `kernel-patches-dist/`.
 
 ## Installing on the board
 
