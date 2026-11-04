@@ -64,8 +64,10 @@ kernel-patches-dist/
     repack-initramfs.sh
     deploy-kernel.sh
     test-vp9.sh
+    test-vp9-4k.sh
     test-h265.sh
     test-h265-4k.sh
+    test-h264.sh
     test-h264-4k.sh
   boot-deploy/
     extlinux.conf.in
@@ -198,13 +200,15 @@ the easy recovery path.
 
 ## Smoke tests
 
-The four original board tests are included unchanged.  Run them on the board
+The six original board tests are included unchanged.  Run them on the board
 after booting the custom entry:
 
 ```sh
 ./kernel-patches-dist/scripts/test-vp9.sh
+./kernel-patches-dist/scripts/test-vp9-4k.sh
 ./kernel-patches-dist/scripts/test-h265.sh
 ./kernel-patches-dist/scripts/test-h265-4k.sh
+./kernel-patches-dist/scripts/test-h264.sh
 ./kernel-patches-dist/scripts/test-h264-4k.sh
 ```
 

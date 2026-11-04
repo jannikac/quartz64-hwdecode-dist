@@ -182,8 +182,10 @@ Rollback if the custom entry fails:
 
 Smoke tests after reboot:
   kernel-patches-dist/scripts/test-vp9.sh
+  kernel-patches-dist/scripts/test-vp9-4k.sh
   kernel-patches-dist/scripts/test-h265.sh
   kernel-patches-dist/scripts/test-h265-4k.sh
+  kernel-patches-dist/scripts/test-h264.sh
   kernel-patches-dist/scripts/test-h264-4k.sh
 
 Do not reboot until you are physically at the board or have SD-card access.
