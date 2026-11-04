@@ -46,6 +46,23 @@ it; it does not modify it.
 
 ## Quick start
 
+### 0. Cross-compile and test the hardware path (no board build)
+
+Use the ephemeral Nix shell and the cross FFmpeg build to verify `rkvdec`
+without compiling anything on the Quartz64:
+
+```sh
+nix-shell
+./jellyfin-flatpak/cross-build-ffmpeg.sh
+```
+
+Then copy `cross-build/cross-ffmpeg-aarch64.tar.gz` and
+`jellyfin-flatpak/scripts/test-cross-ffmpeg.sh` to the board and run the test.
+Details are in `jellyfin-flatpak/README.md`.  This path was used to verify the
+cross-built FFmpeg on the board: it reported
+`Using V4L2 media driver rkvdec-core (7.3.0)` and the `rkvdec` IRQ counter
+advanced during decode.
+
 ### 1. Jellyfin Desktop Flatpak
 
 Build on a capable aarch64 host (or an x86_64 host with aarch64 binfmt), then

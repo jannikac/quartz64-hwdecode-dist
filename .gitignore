@@ -4,6 +4,7 @@ build-dir/
 jellyfin-flatpak/repo/
 jellyfin-flatpak/build-dir/
 jellyfin-flatpak/dist/
+jellyfin-flatpak/cross-build/
 
 # exported bundles
 *.flatpak

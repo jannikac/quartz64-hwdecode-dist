@@ -115,6 +115,95 @@ reviewed against the glibc/KDE target rather than copied blindly:
 The adapter (`mkpkg.py`) and the whole Alpine/APK packaging path are not used
 here.
 
+## Cross-compiling on the host
+
+The register-heavy work should not run on the RK3566.  The repository has an
+ephemeral Nix shell at the top level:
+
+```sh
+cd quartz64-hwdecode-dist
+nix-shell
+```
+
+It provides an aarch64 glibc cross compiler plus the target dependencies used
+by the hardware-decode stack (FFmpeg's libdrm/libudev/zlib, Linux UAPI headers,
+Wayland, and qemu-aarch64 for aarch64 host tools).  Nothing is installed into a
+profile.  The shell exposes:
+
+```text
+CROSS_CC, CROSS_CXX, CROSS_AR, CROSS_RANLIB, CROSS_STRIP
+CROSS_PKG_CONFIG_PATH   target .pc files only
+CROSS_LINUX_HEADERS     aarch64 Linux UAPI tree
+QEMU_AARCH64            for running target-side tools when needed
+```
+
+### Cross-build the FFmpeg hardware test (implemented)
+
+This is the fast path used for board hardware verification.  It builds only
+FFmpeg, not Qt/JMP, so it completes quickly on an x86_64 host:
+
+```sh
+nix-shell
+./jellyfin-flatpak/cross-build-ffmpeg.sh
+```
+
+Output:
+
+```text
+jellyfin-flatpak/cross-build/cross-ffmpeg-aarch64.tar.gz
+```
+
+The cross-built FFmpeg was verified on the board with a local VP9 file:
+
+```text
+Hardware acceleration methods: drm, v4l2request
+Using V4L2 media driver rkvdec-core (7.3.0) for VP9F
+rkvdec IRQ counter advanced during decode
+```
+
+Run the test yourself without building anything on the board:
+
+```sh
+scp jellyfin-flatpak/cross-build/cross-ffmpeg-aarch64.tar.gz \
+    jannik@192.168.1.203:/tmp/
+scp jellyfin-flatpak/scripts/test-cross-ffmpeg.sh \
+    jannik@192.168.1.203:/tmp/
+ssh jannik@192.168.1.203 '
+  rm -rf /tmp/cross-ffmpeg && mkdir -p /tmp/cross-ffmpeg
+  tar -C /tmp/cross-ffmpeg -xzf /tmp/cross-ffmpeg-aarch64.tar.gz
+  sh /tmp/test-cross-ffmpeg.sh'
+```
+
+`test-cross-ffmpeg.sh` uses the KDE runtime's glibc loader explicitly because
+the host root is musl, then checks `-hwaccels`, decodes 120 frames with
+`-hwaccel v4l2request -hwaccel_output_format drm_prime`, and compares the
+`rkvdec` IRQ counter before and after.  It never reads media titles or URLs.
+
+### Cross-building the full JMP Flatpak
+
+The full app also needs the Qt 6.11 headers/libraries from the board's
+`org.kde.Sdk//6.11` and the QtWebEngine files from
+`io.qt.qtwebengine.BaseApp//6.11`, which are target aarch64 trees.  Export just
+those trees once and point the cross toolchain at them:
+
+```sh
+# On the board (paths are the Flatpak deployments):
+SDK=/var/lib/flatpak/runtime/org.kde.Sdk/aarch64/6.11/<commit>/files
+BASE=/var/lib/flatpak/app/io.qt.qtwebengine.BaseApp/aarch64/6.11/<commit>/files
+tar -C "$SDK"  -cf /tmp/jmp-sysroot.tar usr/include usr/lib
+tar -C "$BASE" -rf /tmp/jmp-sysroot.tar usr/include usr/lib 2>/dev/null || true
+# scp /tmp/jmp-sysroot.tar to the build host and unpack it as a sysroot.
+
+# On the build host, inside nix-shell, add the SDK sysroot to the cross
+# compile/search paths for mpvqt/JMP and run moc/qmlcachegen through
+# $QEMU_AARCH64.
+```
+
+The manifest in this directory remains the authoritative full build and can
+also be run with `flatpak-builder --arch=aarch64` on an aarch64 host (or on an
+x86_64 host with aarch64 binfmt).  The cross FFmpeg test above is independent
+of the Flatpak build and is the recommended quick hardware check.
+
 ## Building the Flatpak
 
 The target board has less than 1 GB free. `org.kde.Sdk//6.11` plus a JMP build
