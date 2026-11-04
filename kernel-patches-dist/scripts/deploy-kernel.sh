@@ -69,6 +69,10 @@ uuid_from_fstab() {
     }' /etc/fstab 2>/dev/null
 }
 
+dtb_has_decoder() {
+    grep -aqE 'rockchip,rk3568-vdec|rockchip,rkv-decoder-rk3568|rkvdec' "$1"
+}
+
 uuid_for_mount() {
     _mountpoint=$1
     _uuid=$(uuid_from_fstab "$_mountpoint" || true)
@@ -95,13 +99,23 @@ uuid_for_mount() {
 boot_uuid=$(uuid_for_mount /boot) || die "could not determine the /boot UUID"
 root_uuid=$(uuid_for_mount /) || die "could not determine the root UUID"
 
+if dtb_has_decoder "$stock_dtb"; then
+    dtb_source=$stock_dtb
+    dtb_reason="existing board DTB has an rkvdec node"
+else
+    dtb_source=$artifacts/rk3566-quartz64-b.dtb
+    [ -f "$dtb_source" ] ||
+        die "board DTB has no rkvdec node and kernel-built DTB is missing: $dtb_source"
+    dtb_reason="board DTB has no rkvdec node; using the kernel-built DTB"
+fi
+
 cat <<EOF
 About to deploy kernel $release
 
   artifacts:       $artifacts
   new image:       $new_image
   new initramfs:   $new_initramfs
-  new DTB copy:    $new_dtb (from the existing $stock_dtb)
+  new DTB copy:    $new_dtb (from $dtb_source; $dtb_reason)
   modules:         /usr/lib/modules/$release
   boot UUID:       $boot_uuid
   root UUID:       $root_uuid
@@ -164,7 +178,7 @@ modinfo -k "$release" rockchip-vdec >/dev/null
 
 install -m 0644 "$artifacts/Image" "$new_image"
 install -m 0644 "$temporary/initramfs-vp9" "$new_initramfs"
-install -m 0644 "$stock_dtb" "$new_dtb"
+install -m 0644 "$dtb_source" "$new_dtb"
 install -m 0644 "$temporary/extlinux.conf" "$extlinux"
 install -m 0644 "$service" /etc/systemd/system/clear-initramfs-eth0.service
 systemctl daemon-reload

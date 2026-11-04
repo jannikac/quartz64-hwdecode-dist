@@ -24,17 +24,22 @@ repository's `artifacts/7.3.0-quartz64-vp9+/SHA256SUMS` before being copied
 here.  The build script uses this file directly and runs `olddefconfig`; it does
 not need a live board config snapshot first.
 
-## Why the DTB is not rebuilt
+## DTB selection
 
-The board's existing `/boot/rk3566-quartz64-b.dtb` already contains the vendor
-RKVDEC node (`rockchip,rkv-decoder-rk3568`) and the 297 MHz clock overrides that
-the mainline driver accepts.  A DTB produced from the kernel source tree may
-not carry those same overrides.
+The deploy script prefers the board's existing `/boot/rk3566-quartz64-b.dtb`
+when it contains an rkvdec decoder node.  That preserves any board-specific
+clock overrides.
 
-The deploy script therefore copies the board's existing
-`/boot/rk3566-quartz64-b.dtb` to `/boot/rk3566-quartz64-b-vp9.dtb`.  It never
-overwrites the stock DTB and never uses a source-built DTB.  The build script
-builds only `Image` and modules.
+A freshly reflashed stock postmarketOS v26.06 DTB can lack the rkvdec node
+entirely; that was observed on the clean-board integration test.  In that case
+the build ships the DTB generated from the pinned `rockchip-7.3.y` kernel,
+which contains the mainline `rockchip,rk3568-vdec` node and its assigned
+clocks.  The deploy script uses that kernel-built DTB only when the board DTB
+has no decoder node.
+
+Either way the chosen DTB is copied to
+`/boot/rk3566-quartz64-b-vp9.dtb`.  The stock DTB file itself is never
+overwritten.
 
 ## What is intentionally omitted
 
@@ -91,20 +96,20 @@ The script:
 
 1. Clones or fetches the pinned commit into `build/linux`.
 2. Applies the two pinned patches.
-3. Copies `kernel.config`, runs `olddefconfig`, and builds `Image modules`.
+3. Copies `kernel.config`, runs `olddefconfig`, and builds
+   `Image modules rockchip/rk3566-quartz64-b.dtb`.
 4. Installs modules into a staging tree and writes:
 
 ```text
 dist/7.3.0-quartz64-vp9+/
   Image
   modules.tar.zst
+  rk3566-quartz64-b.dtb
   kernel.release
   kernel.config
   source-revision
   SHA256SUMS
 ```
-
-It does not build or copy a DTB.
 
 ## Repacking the initramfs
 
@@ -126,13 +131,34 @@ other DTB property.  That block was kexec-only and is gone.
 
 ## Deploying
 
+The deploy and initramfs scripts run on the board.  A stock postmarketOS
+v26.06 install is missing `zstd`, so install it first:
+
+```sh
+sudo apk add zstd
+```
+
+`cpio`, `gzip`, and kmod (`depmod`/`modinfo`/`modprobe`) are already present
+on the stock image.
+
+Copy the package and the built artifacts from the build host without the large
+`build/` tree:
+
+```sh
+# On the build host, from the repository root:
+tar --exclude='kernel-patches-dist/build' -cf - kernel-patches-dist |
+  ssh user@board '
+    mkdir -p ~/quartz64-hwdecode-dist
+    tar -C ~/quartz64-hwdecode-dist -xf -'
+```
+
 Run on the board as root.  The script is deliberately interactive and does not
 reboot automatically:
 
 ```sh
-cd /path/to/quartz64-hwdecode-dist
+cd ~/quartz64-hwdecode-dist
 sudo ./kernel-patches-dist/scripts/deploy-kernel.sh \
-  --artifacts /path/to/dist/7.3.0-quartz64-vp9+
+  --artifacts ./kernel-patches-dist/dist/7.3.0-quartz64-vp9+
 ```
 
 Add `--dry-run` first if you want to see the detected UUIDs and target files
@@ -154,7 +180,9 @@ The script performs the following, with an explicit confirmation prompt:
 4. Creates `/boot/stock-boot-before-vp9.tar` if it does not already exist.
 5. Repacks the initramfs with the new modules.
 6. Installs modules under `/usr/lib/modules/<release>` and runs `depmod`.
-7. Copies the board's existing DTB to `/boot/rk3566-quartz64-b-vp9.dtb`.
+7. Selects the board DTB when it has an rkvdec node, otherwise uses the
+   kernel-built DTB, and copies the selected file to
+   `/boot/rk3566-quartz64-b-vp9.dtb`.
 8. Installs `/boot/vmlinuz-vp9` and `/boot/initramfs-vp9`.
 9. Writes a dual-entry `/boot/extlinux/extlinux.conf` with the stock entry and
    the new `quartz64-vp9-test` entry.  Both entries use the detected UUIDs and
@@ -163,7 +191,8 @@ The script performs the following, with an explicit confirmation prompt:
     initramfs USB-network address from `eth0` so NetworkManager can DHCP.
 
 The stock `vmlinuz`, `initramfs`, `rk3566-quartz64-b.dtb`, and stock entry
-remain present.  The script never writes a source-built DTB.
+remain present.  The kernel-built DTB, when needed, is installed only as the
+new `rk3566-quartz64-b-vp9.dtb` filename.
 
 Reboot manually when you are at the board or have SD-card access:
 
@@ -200,16 +229,24 @@ the easy recovery path.
 
 ## Smoke tests
 
-The six original board tests are included unchanged.  Run them on the board
-after booting the custom entry:
+A fresh postmarketOS install has the GStreamer libraries but not the command
+line tools or the Good plugins.  Install them first:
 
 ```sh
-./kernel-patches-dist/scripts/test-vp9.sh
-./kernel-patches-dist/scripts/test-vp9-4k.sh
-./kernel-patches-dist/scripts/test-h265.sh
-./kernel-patches-dist/scripts/test-h265-4k.sh
-./kernel-patches-dist/scripts/test-h264.sh
-./kernel-patches-dist/scripts/test-h264-4k.sh
+sudo apk add gstreamer-tools gst-plugins-good gst-plugins-bad
+```
+
+The six original board tests are included unchanged.  They do not bundle media
+files; the default paths are from the original development board.  Pass your
+own local files explicitly:
+
+```sh
+./kernel-patches-dist/scripts/test-vp9.sh     /path/to/test-vp9.webm
+./kernel-patches-dist/scripts/test-vp9-4k.sh  /path/to/test-vp9-4k.webm
+./kernel-patches-dist/scripts/test-h265.sh    /path/to/test-h265.mkv
+./kernel-patches-dist/scripts/test-h265-4k.sh /path/to/test-h265-4k.mkv
+./kernel-patches-dist/scripts/test-h264.sh    /path/to/test-h264.mkv
+./kernel-patches-dist/scripts/test-h264-4k.sh /path/to/test-h264-4k.mkv
 ```
 
 They use GStreamer's `v4l2sl*` decoders, locate the `rkvdec` device by name,

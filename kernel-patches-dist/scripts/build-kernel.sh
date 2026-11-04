@@ -64,7 +64,7 @@ rm -rf "$build_dir"
 mkdir -p "$build_dir"
 cp "$root/kernel.config" "$build_dir/.config"
 make_kernel olddefconfig
-make_kernel -j"$jobs" Image modules
+make_kernel -j"$jobs" Image modules rockchip/rk3566-quartz64-b.dtb
 
 release=$(cat "$build_dir/include/config/kernel.release")
 out="$root/dist/$release"
@@ -78,16 +78,18 @@ tar --zstd --exclude="lib/modules/$release/build" \
     -cf "$out/modules.tar.zst" -C "$stage_dir" "lib/modules/$release"
 
 cp "$build_dir/arch/arm64/boot/Image" "$out/Image"
+cp "$build_dir/arch/arm64/boot/dts/rockchip/rk3566-quartz64-b.dtb" \
+    "$out/rk3566-quartz64-b.dtb"
 printf '%s\n' "$release" > "$out/kernel.release"
 cp "$root/kernel.config" "$out/kernel.config"
 git -C "$source_dir" rev-parse HEAD > "$out/source-revision"
 (
     cd "$out"
-    sha256sum Image modules.tar.zst kernel.release kernel.config source-revision \
-        > SHA256SUMS
+    sha256sum Image modules.tar.zst rk3566-quartz64-b.dtb \
+        kernel.release kernel.config source-revision > SHA256SUMS
     sha256sum -c SHA256SUMS
 )
 
 printf '\nKernel artifacts: %s\n' "$out"
-printf 'No DTB is built or copied. Deploy uses the board DTB.\n'
+printf 'The deploy script prefers the board DTB when it has an rkvdec node.\n'
 printf 'Next: sudo %s/deploy-kernel.sh --artifacts %s\n' "$here" "$out"
