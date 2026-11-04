@@ -44,7 +44,123 @@ it; it does not modify it.
   controller has no Flatpak portal.  This is one reason the build is explicitly
   not for Flathub.
 
-## Quick start
+## End-user guide (install and use)
+
+This is for someone with a Quartz64-B that already boots the working 7.3
+kernel and wants the two hardware-decoded apps.  You do **not** need to build
+anything if you already have these two files from the repo owner:
+
+```text
+dev.jannik.JellyfinDesktopV4L2.flatpak
+v4l2_request_drv_video.so
+```
+
+If you do not have them, use the build/development quick start below, or ask
+the repo owner for the matching bundle and driver.
+
+### Before you start
+
+- The board must be running the `7.3.0-quartz64-vp9+` kernel with a bound
+  `rkvdec` device.  Kernel work is **not** part of this repository yet.
+- Use a Wayland session.  Chromium's zero-copy video import does not work on
+  X11 in this stack.
+- Have Flathub configured and the official VacuumTube app installed:
+
+  ```sh
+  flatpak remote-add --if-not-exists --user flathub \
+    https://flathub.org/repo/flathub.flatpakrepo
+  flatpak install --user flathub rocks.shy.VacuumTube
+  ```
+
+- Use your own Jellyfin account.  This repository never ships credentials,
+  tokens, or server URLs.
+
+### 1. Install Jellyfin Desktop (hardware-decoded)
+
+Copy the bundle to the board, then install and start it:
+
+```sh
+flatpak install --user --noninteractive \
+  /path/to/dev.jannik.JellyfinDesktopV4L2.flatpak
+
+flatpak run dev.jannik.JellyfinDesktopV4L2
+```
+
+In the app:
+
+1. Log in to your own Jellyfin server.
+2. Open **Client Settings** and enable **Hardware Decoding**.
+3. Play a video.  The native mpv player should be selected automatically.
+
+This app is a personal build (`dev.jannik.JellyfinDesktopV4L2`), not the
+official `org.jellyfin.JellyfinDesktop` Flathub app, and is not affiliated with
+the Jellyfin project.
+
+To check that hardware decode is active while a video plays:
+
+```sh
+cd /path/to/quartz64-hwdecode-dist
+jellyfin-flatpak/scripts/check_jmp_hw.sh
+```
+
+Expected: `hwdec-current = v4l2request`, no host/system FFmpeg in the player's
+process maps, and a rising `rkvdec` IRQ count.  The script does not read media
+titles, paths, or stream URLs.
+
+### 2. Install the VacuumTube VA-API driver
+
+VacuumTube itself stays the normal Flathub build.  Copy the driver to the board
+and run the installer:
+
+```sh
+cd /path/to/quartz64-hwdecode-dist
+
+./vacuumtube-vaapi/scripts/install-driver-override.sh \
+  /path/to/v4l2_request_drv_video.so
+
+./vacuumtube-vaapi/scripts/configure-vacuumtube.sh
+```
+
+Then start VacuumTube normally from its desktop entry.  The override applies
+only to `rocks.shy.VacuumTube`; other Flatpak apps are unaffected.
+
+To check hardware decode while a VP9 video plays:
+
+```sh
+./vacuumtube-vaapi/scripts/check-vacuumtube-hw.sh
+```
+
+Expected: the driver is mapped by a Chromium GPU process, the `rkvdec`
+`/dev/video*` and `/dev/media*` nodes are open, and the `rkvdec` IRQ counter
+increases.  In Chromium's `chrome://gpu`, video decode should say hardware
+accelerated.
+
+### What works and what does not
+
+- Jellyfin: 8-bit H.264, HEVC, and VP9, including 4K, use `v4l2request`.
+  10-bit HEVC currently captures NV15, which the compositor cannot import, so
+  it may show blue or fall back to software.
+- VacuumTube: only VP9 Profile 0 (8-bit) is supported by this driver fork.
+  H.264, HEVC, AV1, and 10-bit VP9 are not hardware-decoded in VacuumTube.
+- AV1 is not hardware-decoded on the RK3566 in either app.
+- A Flatpak runtime update can change the libva ABI.  Rebuild/reinstall the
+  VacuumTube driver after a `flatpak update` if hardware decoding stops working.
+
+### Rollback
+
+```sh
+# Jellyfin Desktop personal build
+flatpak uninstall --user dev.jannik.JellyfinDesktopV4L2
+
+# VacuumTube driver/override only (leaves VacuumTube installed)
+cd /path/to/quartz64-hwdecode-dist
+./vacuumtube-vaapi/scripts/uninstall-vacuumtube-v4l2.sh
+```
+
+Neither rollback touches the kernel, DTBs, modules, bootloader, or the official
+Flathub apps.
+
+## Build and development quick start
 
 ### 0. Cross-compile and test the hardware path (no board build)
 
