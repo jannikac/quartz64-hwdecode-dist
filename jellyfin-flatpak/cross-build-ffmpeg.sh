@@ -67,7 +67,7 @@ env -u NIX_CFLAGS_COMPILE -u NIX_LDFLAGS \
 	--disable-doc --disable-htmlpages --disable-manpages \
 	--disable-podpages --disable-txtpages \
 	--enable-gpl --enable-version3 --enable-pthreads --enable-pic \
-	--disable-autodetect --enable-zlib --enable-libdrm --enable-libudev \
+	--disable-autodetect --enable-zlib --enable-openssl --enable-libdrm --enable-libudev \
 	--enable-v4l2_m2m --enable-v4l2-request \
 	--extra-cflags="-I$PWD/uapi-overlay -I$CROSS_LINUX_HEADERS/include" \
 	--extra-ldflags=-Wl,-rpath,/app/lib

@@ -249,6 +249,11 @@ controls in `<linux/v4l2-controls.h>`, `V4L2_BUF_FLAG_M2M_HOLD_CAPTURE_BUF`,
 `libdrm`, and `libudev`.  The manifest enables `--enable-libdrm` and
 `--enable-libudev` explicitly because it also uses `--disable-autodetect`.
 
+`--enable-openssl` is also required: Jellyfin commonly serves HLS over HTTPS,
+and an FFmpeg built with `--disable-autodetect` has no `https` protocol
+handler without an explicit TLS library.  The runtime supplies `libssl` and
+`libcrypto`.
+
 The HEVC SPS short-term-RPS patch additionally uses the
 `V4L2_CID_STATELESS_HEVC_EXT_SPS_ST_RPS` control and its structs, which are in
 the pinned Quartz64-B kernel but not in mainline Linux 6.18 headers.

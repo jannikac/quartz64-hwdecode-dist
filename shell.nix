@@ -40,6 +40,7 @@ pkgs.mkShell {
     cross.stdenv.cc
     cross.linuxHeaders
     cross.zlib
+    cross.openssl
     cross.libdrm
     cross.udev
     cross.wayland
@@ -66,8 +67,8 @@ pkgs.mkShell {
     # Keep target .pc files separate from the native shell's PKG_CONFIG_PATH.
     export CROSS_PKG_CONFIG_PATH=${
       let deps = map pkgs.lib.getDev (with cross; [
-            zlib libdrm udev wayland fribidi freetype fontconfig harfbuzz
-            libdisplay-info wayland-protocols vulkan-headers
+            zlib openssl libdrm udev wayland fribidi freetype fontconfig
+            harfbuzz libdisplay-info wayland-protocols vulkan-headers
           ]);
       in "${pkgs.lib.makeSearchPath "lib/pkgconfig" deps}:${pkgs.lib.makeSearchPath "share/pkgconfig" deps}"
     }

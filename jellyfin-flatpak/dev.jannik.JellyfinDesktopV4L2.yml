@@ -62,6 +62,7 @@ modules:
         --enable-pic
         --disable-autodetect
         --enable-zlib
+        --enable-openssl
         --enable-libdrm
         --enable-libudev
         --enable-v4l2_m2m
