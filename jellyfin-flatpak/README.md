@@ -179,45 +179,50 @@ the host root is musl, then checks `-hwaccels`, decodes 120 frames with
 `-hwaccel v4l2request -hwaccel_output_format drm_prime`, and compares the
 `rkvdec` IRQ counter before and after.  It never reads media titles or URLs.
 
-### Cross-building the full JMP Flatpak
+### Cross-building the full JMP Flatpak (implemented)
 
-The full app also needs the Qt 6.11 headers/libraries from the board's
-`org.kde.Sdk//6.11` and the QtWebEngine files from
-`io.qt.qtwebengine.BaseApp//6.11`, which are target aarch64 trees.  Export just
-those trees once and point the cross toolchain at them:
+`cross-build-flatpak.sh` builds the complete app on an x86_64 host.  It does
+not need aarch64 binfmt and does not build on the board.  It downloads the
+aarch64 `org.kde.Sdk//6.11` and `io.qt.qtwebengine.BaseApp//6.11` Flatpak
+runtimes on the host, builds FFmpeg/libass/libplacebo/mpv/MpvQt/JMP with the
+Nix cross toolchain, runs the target Qt tools through qemu, patches the
+cross-built executables for the Flatpak runtime, and exports the bundle.
 
 ```sh
-# On the board (paths are the Flatpak deployments):
-SDK=/var/lib/flatpak/runtime/org.kde.Sdk/aarch64/6.11/<commit>/files
-BASE=/var/lib/flatpak/app/io.qt.qtwebengine.BaseApp/aarch64/6.11/<commit>/files
-tar -C "$SDK"  -cf /tmp/jmp-sysroot.tar usr/include usr/lib
-tar -C "$BASE" -rf /tmp/jmp-sysroot.tar usr/include usr/lib 2>/dev/null || true
-# scp /tmp/jmp-sysroot.tar to the build host and unpack it as a sysroot.
-
-# On the build host, inside nix-shell, add the SDK sysroot to the cross
-# compile/search paths for mpvqt/JMP and run moc/qmlcachegen through
-# $QEMU_AARCH64.
+cd quartz64-hwdecode-dist
+nix-shell
+./jellyfin-flatpak/cross-build-flatpak.sh
 ```
 
-The manifest in this directory remains the authoritative full build and can
-also be run with `flatpak-builder --arch=aarch64` on an aarch64 host (or on an
-x86_64 host with aarch64 binfmt).  The cross FFmpeg test above is independent
-of the Flatpak build and is the recommended quick hardware check.
+Output:
+
+```text
+jellyfin-flatpak/cross-build-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak
+```
+
+The host needs enough space for the aarch64 SDK/base runtimes and the build
+tree (roughly 8 GB).  The aarch64 runtimes are installed into the user's
+Flatpak installation; this works on x86_64 because Flatpak only extracts them.
+
+The manifest remains the authoritative definition of pins, patches, and
+permissions.  `build-flatpak.sh` is still available for a native aarch64 host
+or an x86_64 host that already has aarch64 binfmt.  The cross FFmpeg test above
+is independent of the Flatpak build and remains the quickest hardware check.
 
 ## Building the Flatpak
 
-The target board has less than 1 GB free. `org.kde.Sdk//6.11` plus a JMP build
-tree does not fit there, so build on a capable aarch64 host, or on an x86_64
-host with aarch64 binfmt/qemu-user configured, and copy only the exported
-bundle. This is the same cross-build-then-copy pattern used for the
-VacuumTube driver.
+The target board has limited free space, so build on the host and copy only
+the exported bundle.  On x86_64 use the cross-build script above; it needs no
+aarch64 binfmt.
 
-Requirements on the build host:
+```sh
+cd quartz64-hwdecode-dist
+nix-shell
+./jellyfin-flatpak/cross-build-flatpak.sh
+```
 
-- `flatpak` and `flatpak-builder`
-- a Flathub remote
-- roughly 5 GB free for the SDK, base app, and build tree
-- for x86_64: `qemu-user-static`/binfmt for aarch64
+On a native aarch64 host, or an x86_64 host with aarch64 binfmt configured,
+the original flatpak-builder path also works:
 
 ```sh
 cd jellyfin-flatpak
@@ -228,6 +233,9 @@ flatpak remote-add --user --if-not-exists flathub \
 # or, on x86_64 with aarch64 binfmt:
 # ARCH=aarch64 ./build-flatpak.sh
 ```
+
+The flatpak-builder path needs `flatpak`/`flatpak-builder`, a Flathub remote,
+and roughly 5 GB free for the SDK/base app and build tree.
 
 The script runs `flatpak-builder` and exports:
 
@@ -258,7 +266,7 @@ the kernel side is deliberately deferred to `kernel-patches-dist/`.
 Copy only the bundle:
 
 ```sh
-scp dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
+scp cross-build-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
   jannik@192.168.1.203:/tmp/
 
 ssh jannik@192.168.1.203 '
@@ -266,6 +274,9 @@ ssh jannik@192.168.1.203 '
     /tmp/dev.jannik.JellyfinDesktopV4L2.flatpak
 '
 ```
+
+If you used the native `build-flatpak.sh` path instead, the bundle is under
+`dist/` rather than `cross-build-flatpak/dist/`.
 
 The bundle declares `org.kde.Platform//6.11` and
 `io.qt.qtwebengine.BaseApp//6.11`. If they are not already present on the
@@ -342,13 +353,13 @@ login) can be run inside the sandbox on a local file:
 ```sh
 flatpak run --filesystem="$HOME/test-claude:ro" \
   --command=sh dev.jannik.JellyfinDesktopV4L2 -c '
-    mpv --no-config --hwdec=v4l2request --vo=null --frames=120 \
+    mpv --no-config --hwdec=v4l2request-copy --vo=null --frames=120 \
         --log-file=/tmp/mpv-smoke.log "/home/jannik/test-claude/test.vp9.webm"
     grep -oE "Using (hardware|software) decoding[^ ]*( \([a-z0-9-]+\))?" /tmp/mpv-smoke.log
   '
 ```
 
-Expected: `Using hardware decoding (v4l2request)`.
+Expected: `Using hardware decoding (v4l2request-copy)`.
 
 Typical limitations are unchanged from SRC: 8-bit H.264/HEVC/VP9 work;
 10-bit HEVC captures NV15 and is not importable; AV1 is not hardware-decoded on

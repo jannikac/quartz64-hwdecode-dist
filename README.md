@@ -182,15 +182,18 @@ advanced during decode.
 
 ### 1. Jellyfin Desktop Flatpak
 
-Build on a capable aarch64 host (or an x86_64 host with aarch64 binfmt), then
-copy only the exported bundle to the board:
+Cross-build on this host; no aarch64 binfmt is needed.  The script downloads
+the aarch64 SDK/base runtimes and builds the whole app, then copy only the
+bundle to the board:
 
 ```sh
-cd jellyfin-flatpak
-./build-flatpak.sh                  # ARCH=aarch64 on an x86_64 build host
-scp dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
+nix-shell
+./jellyfin-flatpak/cross-build-flatpak.sh
+scp jellyfin-flatpak/cross-build-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
   jannik@192.168.1.203:/tmp/
 ```
+
+On a native aarch64 host, `jellyfin-flatpak/build-flatpak.sh` remains available.
 
 On the board:
 

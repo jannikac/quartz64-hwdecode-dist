@@ -89,10 +89,8 @@ Five local patches are applied:
 
 ## Requirements
 
-- The board is already running the 7.3 kernel from the board bring-up
-  repository with a bound `rkvdec` and working GStreamer VP9 decode
-  (`scripts/test-vp9.sh` passes there).  Kernel packaging is not part of this
-  repository yet; see `../kernel-patches-dist/`.
+- The board is running the 7.3 kernel with a bound `rkvdec` and working
+  GStreamer VP9 decode.  Build and deploy it with `../kernel-patches-dist/`.
 - VacuumTube is installed from Flathub.
 - The graphical session is Wayland.  Chromium's GL zero-copy NV12 import on
   X11 is not usable; the app must run under Wayland.
@@ -101,10 +99,11 @@ Five local patches are applied:
   for the `org.freedesktop.Sdk`.  This board only had about 1 GB, so the
   cross build was used.
 
-## Step 1: prove the VA-API driver on the host (recommended)
+## Step 1: prove the VA-API driver on the host (optional, legacy `/opt` stack)
 
-This uses the existing musl FFmpeg/mpv stack and isolates driver/kernel
-problems from Electron.
+This uses the old musl FFmpeg/mpv `/opt` stack from the original bring-up.  On
+a clean repo-only board that stack does not exist, so skip to Step 2 and use
+the local VP9 test under Verification instead.
 
 ```sh
 sudo apk add build-base meson linux-headers libva-dev libdrm-dev libva-utils
@@ -149,9 +148,11 @@ build host with an aarch64 glibc toolchain and copy only the `.so` to the
 board.  The driver has no dependency other than `libc.so.6`; libva loads it
 through its driver vtable.
 
-On the board, export the headers the driver needs:
+On a stock board, install the development headers first, then export them:
 
 ```sh
+sudo apk add libva-dev libdrm-dev linux-headers
+
 tar -C /usr/include -cf /tmp/vacuumtube-headers.tar \
   va linux asm asm-generic libdrm
 ```
@@ -248,6 +249,26 @@ Expected while a VP9 video is playing:
 - one process holds the `rkvdec` video node and its media node;
 - the rkvdec IRQ counter increases;
 - CPU use is well below software decode.
+
+Depending on the DTB, the decoder interrupt is named `rkvdec` or
+`fdf80200.video-codec`; the check script accepts both.
+
+### Local VP9 test without a YouTube login
+
+For a repeatable test, serve a local VP9 file from a small HTML page and drive
+the Chromium session with its remote debugging port.  With the test media in
+`/tmp/quartz64-testmedia`:
+
+```sh
+flatpak run --filesystem=/tmp/quartz64-testmedia:ro \
+  --command=startvacuumtube rocks.shy.VacuumTube --remote-debugging-port=9222
+```
+
+Then navigate the page to `file:///tmp/quartz64-testmedia/test.html` through
+`http://127.0.0.1:9222/json/list` and run `check-vacuumtube-hw.sh`.  This
+requires `curl` and a WebSocket client such as `websocat`; both are available
+as Alpine packages.  The HTML page should contain an autoplaying muted
+`<video src="test-vp9.webm">` element.
 
 ### Measured on this board
 

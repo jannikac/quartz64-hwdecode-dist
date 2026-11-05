@@ -94,7 +94,7 @@ def total():
 def irq_sum():
     try:
         with open("/proc/interrupts") as f:
-            lines = [l for l in f if "rkvdec" in l.lower()]
+            lines = [l for l in f if any(k in l.lower() for k in ("rkvdec", "video-codec", "fdf80200"))]
     except OSError:
         return None
     total = 0

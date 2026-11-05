@@ -55,10 +55,10 @@ done
 [ "$fd_found" -eq 1 ] || echo "no process has /dev/video* or /dev/media* open"
 
 echo "====RKVDEC IRQ===="
-grep -i rkvdec /proc/interrupts 2>/dev/null || echo "no rkvdec line in /proc/interrupts"
+grep -iE "rkvdec|video-codec|fdf80200" /proc/interrupts 2>/dev/null || echo "no rkvdec line in /proc/interrupts"
 
 irq_sum() {
-	grep -i rkvdec /proc/interrupts 2>/dev/null |
+	grep -iE "rkvdec|video-codec|fdf80200" /proc/interrupts 2>/dev/null |
 		awk '{for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+$/) s += $i}
 		     END {print s + 0}'
 }

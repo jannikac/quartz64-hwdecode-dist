@@ -21,10 +21,10 @@ dir=$(dirname "$file")
 flatpak run --filesystem="$dir:ro" --command=sh "$APP_ID" -c '
 	log=/tmp/mpv-smoke.log
 	rm -f "$log"
-	mpv --no-config --hwdec=v4l2request --vo=null --frames=120 \
+	mpv --no-config --hwdec=v4l2request-copy --vo=null --frames=120 \
 		--log-file="$log" "$1" >/dev/null 2>&1 || true
-	if grep -q "Using hardware decoding (v4l2request)" "$log"; then
-		echo "PASS: Using hardware decoding (v4l2request)"
+	if grep -q "Using hardware decoding (v4l2request-copy)" "$log"; then
+		echo "PASS: Using hardware decoding (v4l2request-copy)"
 		grep -oE "Using (hardware|software) decoding[^ ]*( \([a-z0-9-]+\))?" "$log" | sort -u
 		exit 0
 	fi
