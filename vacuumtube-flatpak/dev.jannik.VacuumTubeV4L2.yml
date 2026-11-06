@@ -1,0 +1,119 @@
+app-id: dev.jannik.VacuumTubeV4L2
+
+runtime: org.freedesktop.Platform
+runtime-version: &runtime-version '25.08'
+sdk: org.freedesktop.Sdk
+
+base: org.electronjs.Electron2.BaseApp
+base-version: *runtime-version
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
+
+build-options:
+  append-path: /usr/lib/sdk/node22/bin
+
+command: startvacuumtube
+separate-locales: false
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --share=ipc # required by x11
+  - --share=network
+  - --device=all # for gpu (video decoding) and controllers
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons # this is used to show the correct cursor on Wayland
+
+  # The VA-API driver is installed by the libva-v4l2-request module below.
+  # These are baked in, so no post-install flatpak override is needed.
+  - --env=LIBVA_DRIVER_NAME=v4l2_request
+  - --env=LIBVA_DRIVERS_PATH=/app/lib/dri
+
+  # to allow chromium to inhibit screensaver
+  - --talk-name=org.freedesktop.ScreenSaver
+  - --talk-name=org.gnome.ScreenSaver
+  - --talk-name=org.cinnamon.ScreenSaver
+  - --talk-name=org.mate.ScreenSaver
+  - --talk-name=org.xfce.ScreenSaver
+
+  - --own-name=org.mpris.MediaPlayer2.chromium.* # to allow chromium to create an mpris instance (chromium creates a randomized name, impossible to change even from electron)
+  - --filesystem=/run/udev:ro # controllers sometimes aren't registered unless this is present
+
+modules:
+  # ------------------------------------------------------------------------
+  # VA-API driver for rkvdec (RK3566 VDPU346).
+  #
+  # This is the same pinned fork and patch set as ../vacuumtube-vaapi/.
+  # Here it is a normal sequentially built Flatpak module; it installs
+  # v4l2_request_drv_video.so into /app/lib/dri, which the finish-args above
+  # already tell libva to use.
+  #
+  # init_compat.c makes __vaDriverInit_1_22 the primary entry point and adds
+  # wrappers for the next minor versions.  Runtime 25.08 ships libva 2.22.0
+  # (VA-API 1.22), so the 1_22 symbol matches what libva dlopens.
+  # ------------------------------------------------------------------------
+  - name: libva-v4l2-request
+    buildsystem: meson
+    sources:
+      - type: archive
+        url: https://github.com/dongioia/libva-v4l2-request/archive/ed4bc90a8c979c83790013297850960c73a3d2f1.tar.gz
+        sha256: e4cb31aba67d0121dd294e315df5fba63ebf41f7d1d2dd7f5ccf8f3ebfb333a5
+
+      # Copied verbatim from ../vacuumtube-vaapi/patches/.
+      - type: patch
+        path: patches/0001-libva-v4l2-request-autodetect-rkvdec.patch
+      - type: patch
+        path: patches/0002-libva-v4l2-request-vp9-profile0-only.patch
+      - type: patch
+        path: patches/0003-libva-v4l2-request-reduce-frame-pool.patch
+      - type: patch
+        path: patches/0004-libva-v4l2-request-bind-on-export.patch
+      - type: patch
+        path: patches/0005-libva-v4l2-request-export-separate-layers.patch
+
+      # Build glue: add init_compat.c to the driver's meson source list.
+      - type: file
+        path: init_compat.c
+        dest: src
+      - type: patch
+        path: patches/0006-libva-v4l2-request-build-init-compat.patch
+
+  - name: VacuumTube
+    buildsystem: simple
+    subdir: main
+    build-options:
+      env:
+        XDG_CACHE_HOME: /run/build/VacuumTube/flatpak-node/cache
+        npm_config_cache: /run/build/VacuumTube/flatpak-node/npm-cache
+        npm_config_offline: "true"
+    build-commands:
+      - npm install --offline
+      - ../flatpak-node/electron-builder-arch-args.sh
+      - npm run linux:build-unpacked -- $ELECTRON_BUILDER_ARCH_ARGS
+      - cp -a dist/linux*unpacked /app/bin/vacuumtube
+
+      - install -Dm755 ../startvacuumtube /app/bin/startvacuumtube
+      - install -Dm644 ../dev.jannik.VacuumTubeV4L2.metainfo.xml -t /app/share/metainfo/
+      - install -Dm644 ../dev.jannik.VacuumTubeV4L2.desktop -t /app/share/applications/
+      - install -Dm644 ../dev.jannik.VacuumTubeV4L2.svg /app/share/icons/hicolor/scalable/apps/dev.jannik.VacuumTubeV4L2.svg
+
+    sources:
+      - flatpak-sources.json
+
+      - type: git
+        url: https://github.com/shy1132/VacuumTube.git
+        commit: 665ca9b4c30add776fba948f8b0262fe0ce30178
+        dest: main
+
+      - type: file
+        path: startvacuumtube
+
+      # Personal metadata and icon.  Do not reuse rocks.shy.VacuumTube's app
+      # ID or icon: both apps may be installed side by side.
+      - type: file
+        path: dev.jannik.VacuumTubeV4L2.metainfo.xml
+      - type: file
+        path: dev.jannik.VacuumTubeV4L2.desktop
+      - type: file
+        path: dev.jannik.VacuumTubeV4L2.svg

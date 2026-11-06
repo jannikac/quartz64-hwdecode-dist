@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<component type="desktop-application">
+  <id>dev.jannik.VacuumTubeV4L2</id>
+  <name>VacuumTube (V4L2)</name>
+  <summary>Personal VacuumTube build with the rkvdec VA-API driver</summary>
+  <developer id="dev.jannik">
+    <name>Jannik</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      This is a personal, sideloaded Flatpak of VacuumTube with the
+      libva-v4l2-request VA-API driver bundled for the RK3566 rkvdec decoder.
+      It is derived from the MIT-licensed VacuumTube project by shy and is not
+      affiliated with or endorsed by that project or its Flathub listing.
+    </p>
+    <p>
+      VacuumTube is an unofficial open source wrapper of YouTube Leanback (the
+      console and Smart TV version of YouTube) for PCs, with a built-in
+      adblocker and other enhancements.
+    </p>
+  </description>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Watching a video</caption>
+      <image type="source">https://raw.githubusercontent.com/shy1132/VacuumTube/refs/heads/main/flatpak/screenshots/video.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Searching</caption>
+      <image type="source">https://raw.githubusercontent.com/shy1132/VacuumTube/refs/heads/main/flatpak/screenshots/search.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Settings</caption>
+      <image type="source">https://raw.githubusercontent.com/shy1132/VacuumTube/refs/heads/main/flatpak/screenshots/settings.png</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="2.0.1" date="2026-10-17" type="stable">
+      <description>
+        <p>VacuumTube v2.0.1 source, with the personal V4L2 Flatpak packaging.</p>
+      </description>
+    </release>
+  </releases>
+  <url type="homepage">https://github.com/shy1132/VacuumTube</url>
+  <url type="bugtracker">https://github.com/shy1132/VacuumTube/issues</url>
+  <url type="vcs-browser">https://github.com/shy1132/VacuumTube</url>
+  <requires>
+    <internet>always</internet>
+  </requires>
+  <recommends>
+    <control>gamepad</control>
+    <control>tv-remote</control>
+  </recommends>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>tablet</control>
+    <control>touch</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <launchable type="desktop-id">dev.jannik.VacuumTubeV4L2.desktop</launchable>
+  <keywords>
+    <keyword>youtube</keyword>
+    <keyword>yt</keyword>
+    <keyword>leanback</keyword>
+    <keyword>v4l2</keyword>
+    <keyword>rkvdec</keyword>
+  </keywords>
+</component>

@@ -104,6 +104,8 @@ modules:
       - rm -f /app/share/applications/org.jellyfin.JellyfinDesktop.desktop
       - rm -f /app/share/metainfo/org.jellyfin.JellyfinDesktop.appdata.xml
       - install -Dm644 dev.jannik.JellyfinDesktopV4L2.desktop /app/share/applications/dev.jannik.JellyfinDesktopV4L2.desktop
+      # Keep the upstream artwork but under this personal app's icon ID.
+      - cp /app/share/icons/hicolor/scalable/apps/org.jellyfin.JellyfinDesktop.svg /app/share/icons/hicolor/scalable/apps/dev.jannik.JellyfinDesktopV4L2.svg
     sources:
       - type: git
         url: https://github.com/jellyfin/jellyfin-media-player.git
@@ -157,6 +159,20 @@ modules:
               - type: patch
                 path: patches/mpv/0001-mpv-v4l2request.patch
             modules:
+              # mpv requires libdisplay-info whenever DRM support is enabled.
+              # The old hand-built cross sysroot got it from the Nix cross
+              # shell; the manifest must provide it itself.
+              - name: libdisplay-info
+                buildsystem: meson
+                cleanup:
+                  - /bin/di-edid-decode
+                  - /include
+                  - /lib/pkgconfig
+                sources:
+                  - type: archive
+                    url: https://gitlab.freedesktop.org/emersion/libdisplay-info/-/archive/0.3.0/libdisplay-info-0.3.0.tar.gz
+                    sha256: 2b467e3336aec63819d6aca28d7310d3dc7415b2b3a3c3a5aec9d3727053c078
+
               - name: libplacebo
                 buildsystem: meson
                 config-opts:

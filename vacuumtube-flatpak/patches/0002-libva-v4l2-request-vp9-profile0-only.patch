@@ -1,0 +1,88 @@
+diff --git a/src/config.c b/src/config.c
+index 7d0dc95..75865d9 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -54,16 +54,7 @@ VAStatus RequestCreateConfig(VADriverContextP context, VAProfile profile,
+ 	int i, index;
+ 
+ 	switch (profile) {
+-	case VAProfileMPEG2Simple:
+-	case VAProfileMPEG2Main:
+-	case VAProfileH264Main:
+-	case VAProfileH264High:
+-	case VAProfileH264ConstrainedBaseline:
+-	case VAProfileH264MultiviewHigh:
+-	case VAProfileH264StereoHigh:
+-	case VAProfileHEVCMain:
+ 	case VAProfileVP9Profile0:
+-	case VAProfileVP9Profile2:
+ 		if (entrypoint != VAEntrypointVLD)
+ 			return VA_STATUS_ERROR_UNSUPPORTED_ENTRYPOINT;
+ 		break;
+@@ -118,36 +109,21 @@ VAStatus RequestQueryConfigProfiles(VADriverContextP context,
+ {
+ 	struct request_data *driver_data = context->pDriverData;
+ 	unsigned int index = 0;
+-	bool found;
+ 
+-	found = v4l2_find_format_any(driver_data->video_fd,
+-				     V4L2_PIX_FMT_MPEG2_SLICE);
+-	if (found && index < (V4L2_REQUEST_MAX_CONFIG_ATTRIBUTES - 2)) {
+-		profiles[index++] = VAProfileMPEG2Simple;
+-		profiles[index++] = VAProfileMPEG2Main;
+-	}
+-
+-	found = v4l2_find_format_any(driver_data->video_fd,
+-				     V4L2_PIX_FMT_H264_SLICE);
+-	if (found && index < (V4L2_REQUEST_MAX_CONFIG_ATTRIBUTES - 5)) {
+-		profiles[index++] = VAProfileH264Main;
+-		profiles[index++] = VAProfileH264High;
+-		profiles[index++] = VAProfileH264ConstrainedBaseline;
+-		profiles[index++] = VAProfileH264MultiviewHigh;
+-		profiles[index++] = VAProfileH264StereoHigh;
+-	}
+-
+-	found = v4l2_find_format_any(driver_data->video_fd,
+-				     V4L2_PIX_FMT_HEVC_SLICE);
+-	if (found && index < (V4L2_REQUEST_MAX_CONFIG_ATTRIBUTES - 1))
+-		profiles[index++] = VAProfileHEVCMain;
+-
+-	found = v4l2_find_format_any(driver_data->video_fd,
+-				     V4L2_PIX_FMT_VP9_FRAME);
+-	if (found && index < (V4L2_REQUEST_MAX_CONFIG_ATTRIBUTES - 2)) {
++	/*
++	 * This fork only implements the VP9 stateless backend.  Do not
++	 * advertise MPEG-2/H.264/HEVC profiles: the format probes below
++	 * would succeed on rkvdec (the formats exist), but the codec
++	 * backends are stubs and a client that selects them fails
++	 * mid-playback instead of falling back to software.
++	 *
++	 * Profile 0 only: RK3566 VDPU346 emits NV15 for 10-bit VP9, and
++	 * Chromium has no NV15/P010 import path yet.  Advertising
++	 * Profile 2 makes it try to decode 10-bit into an NV12 surface.
++	 */
++	if (v4l2_find_format_any(driver_data->video_fd,
++				 V4L2_PIX_FMT_VP9_FRAME))
+ 		profiles[index++] = VAProfileVP9Profile0;
+-		profiles[index++] = VAProfileVP9Profile2;
+-	}
+ 
+ 	*profiles_count = index;
+ 
+@@ -160,16 +136,7 @@ VAStatus RequestQueryConfigEntrypoints(VADriverContextP context,
+ 				       int *entrypoints_count)
+ {
+ 	switch (profile) {
+-	case VAProfileMPEG2Simple:
+-	case VAProfileMPEG2Main:
+-	case VAProfileH264Main:
+-	case VAProfileH264High:
+-	case VAProfileH264ConstrainedBaseline:
+-	case VAProfileH264MultiviewHigh:
+-	case VAProfileH264StereoHigh:
+-	case VAProfileHEVCMain:
+ 	case VAProfileVP9Profile0:
+-	case VAProfileVP9Profile2:
+ 		entrypoints[0] = VAEntrypointVLD;
+ 		*entrypoints_count = 1;
+ 		break;

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=VacuumTube (V4L2)
+Exec=startvacuumtube %U
+Terminal=false
+Type=Application
+Icon=dev.jannik.VacuumTubeV4L2
+StartupWMClass=VacuumTube
+Categories=AudioVideo;
+Keywords=YouTube;YT;VP9;V4L2;rkvdec;
+Comment=Personal VacuumTube build with the rkvdec VA-API driver
+X-KDE-FormFactors=mediacenter,desktop,handset,tablet

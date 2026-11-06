@@ -1,0 +1,12 @@
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -27,8 +27,9 @@
+ 	output: 'autoconfig.h',
+ 	configuration: autoconf_data)
+ 
+ sources = [
++	'init_compat.c',
+ 	'request.c',
+ 	'object_heap.c',
+ 	'config.c',
+ 	'surface.c',

@@ -14,7 +14,6 @@ pkgs.mkShell {
     bc
     bison
     ccache
-    cmake
     cpio
     curl
     dtc
@@ -23,36 +22,27 @@ pkgs.mkShell {
     git
     gnumake
     kmod
-    meson
-    ninja
     patch
-    patchelf
     perl
     pkg-config
     python3
-    wayland-scanner
     wget
     xz
     zstd
 
-    # aarch64 target toolchain and libraries used by the FFmpeg, libass and
-    # mpv cross builds.  Qt comes from the aarch64 Flatpak SDK.
+    # aarch64 target toolchain and libraries used by the standalone FFmpeg
+    # hardware test.  The JMP Flatpak itself is built from its manifest.
     cross.stdenv.cc
     cross.linuxHeaders
     cross.zlib
     cross.openssl
     cross.libdrm
     cross.udev
-    cross.wayland
-    cross.wayland-protocols
-    cross.fribidi
-    cross.freetype
-    cross.fontconfig
-    cross.harfbuzz
-    cross.libdisplay-info
-    cross.vulkan-headers
 
-    # Runs aarch64 host tools such as moc/qmlcachegen when cross-building JMP
+    # Host-side manifest build.  qemu-aarch64 is registered as a sandboxed
+    # binfmt_misc handler inside an unprivileged user namespace.
+    flatpak-builder
+    util-linux
     qemu
   ];
 
@@ -67,8 +57,7 @@ pkgs.mkShell {
     # Keep target .pc files separate from the native shell's PKG_CONFIG_PATH.
     export CROSS_PKG_CONFIG_PATH=${
       let deps = map pkgs.lib.getDev (with cross; [
-            zlib openssl libdrm udev wayland fribidi freetype fontconfig
-            harfbuzz libdisplay-info wayland-protocols vulkan-headers
+            zlib openssl libdrm udev
           ]);
       in "${pkgs.lib.makeSearchPath "lib/pkgconfig" deps}:${pkgs.lib.makeSearchPath "share/pkgconfig" deps}"
     }
@@ -80,7 +69,7 @@ pkgs.mkShell {
     echo "  qemu:      $(command -v $QEMU_AARCH64 || true)"
     echo
     echo "Target dependencies are provided by pkgsCross.aarch64-multiplatform."
-    echo "The Flatpak cross build downloads the aarch64 SDK/base runtimes with"
-    echo "flatpak; see jellyfin-flatpak/README.md."
+    echo "The JMP Flatpak is built from its manifest by"
+    echo "jellyfin-flatpak/build-flatpak.sh; see jellyfin-flatpak/README.md."
   '';
 }
