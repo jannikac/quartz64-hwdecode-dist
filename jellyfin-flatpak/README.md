@@ -166,10 +166,10 @@ Run the test yourself without building anything on the board:
 
 ```sh
 scp jellyfin-flatpak/cross-build/cross-ffmpeg-aarch64.tar.gz \
-    jannik@192.168.1.203:/tmp/
+    jannik@192.168.1.130:/tmp/
 scp jellyfin-flatpak/scripts/test-cross-ffmpeg.sh \
-    jannik@192.168.1.203:/tmp/
-ssh jannik@192.168.1.203 '
+    jannik@192.168.1.130:/tmp/
+ssh jannik@192.168.1.130 '
   rm -rf /tmp/cross-ffmpeg && mkdir -p /tmp/cross-ffmpeg
   tar -C /tmp/cross-ffmpeg -xzf /tmp/cross-ffmpeg-aarch64.tar.gz
   sh /tmp/test-cross-ffmpeg.sh'
@@ -292,9 +292,9 @@ Copy only the bundle:
 
 ```sh
 scp dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
-  jannik@192.168.1.203:/tmp/
+  jannik@192.168.1.130:/tmp/
 
-ssh jannik@192.168.1.203 '
+ssh jannik@192.168.1.130 '
   flatpak install --user --noninteractive \
     /tmp/dev.jannik.JellyfinDesktopV4L2.flatpak
 '

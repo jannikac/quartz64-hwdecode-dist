@@ -11,10 +11,10 @@
 # through SSH (`sudo -v`) and then uses the sudo credential cache.
 #
 # Usage:
-#   BOARD=jannik@192.168.1.203 ./verify-userland.sh --yes
+#   BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
 #
 # Optional environment:
-#   BOARD                       SSH target (default jannik@192.168.1.203)
+#   BOARD                       SSH target (default jannik@192.168.1.130)
 #   SSH_OPTS                    extra options for ssh/scp
 #   JELLYFIN_FLATPAK_BUNDLE     bundle to install
 #   VA_DRIVER_SO                prebuilt v4l2_request_drv_video.so
@@ -27,7 +27,7 @@
 set -uo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-BOARD=${BOARD:-jannik@192.168.1.203}
+BOARD=${BOARD:-jannik@192.168.1.130}
 SSH_OPTS=${SSH_OPTS:-}
 APP_ID=dev.jannik.JellyfinDesktopV4L2
 VAC_ID=rocks.shy.VacuumTube

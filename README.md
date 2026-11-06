@@ -255,7 +255,7 @@ bundle to the board:
 nix-shell
 ./jellyfin-flatpak/build-flatpak.sh
 scp jellyfin-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
-  jannik@192.168.1.203:/tmp/
+  jannik@192.168.1.130:/tmp/
 ```
 
 On a native aarch64 host the same script is a plain native flatpak-builder
@@ -279,9 +279,9 @@ an aarch64 glibc cross compiler, then install it on the board:
 
 ```sh
 scp /tmp/vacuumtube-driver/v4l2_request_drv_video.so \
-  jannik@192.168.1.203:/tmp/
+  jannik@192.168.1.130:/tmp/
 
-ssh jannik@192.168.1.203 '
+ssh jannik@192.168.1.130 '
   cd /path/to/quartz64-hwdecode-dist
   ./vacuumtube-vaapi/scripts/install-driver-override.sh \
     /tmp/v4l2_request_drv_video.so
@@ -303,9 +303,9 @@ cd /path/to/quartz64-hwdecode-dist/vacuumtube-flatpak
 # ARCH=aarch64 ./scripts/build-flatpak.sh  # on a prepared x86_64 host
 
 scp dist/dev.jannik.VacuumTubeV4L2.flatpak \
-  jannik@192.168.1.203:/tmp/
+  jannik@192.168.1.130:/tmp/
 
-ssh jannik@192.168.1.203 '
+ssh jannik@192.168.1.130 '
   flatpak install --user --noninteractive /tmp/dev.jannik.VacuumTubeV4L2.flatpak
 '
 ```
@@ -337,12 +337,12 @@ Usage:
 
 ```sh
 # The script uses ordinary key-based SSH; it never stores a password.
-BOARD=jannik@192.168.1.203 ./verify-userland.sh --yes
+BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
 
 # If your artifacts are not in the default locations:
 JELLYFIN_FLATPAK_BUNDLE=/path/to/dev.jannik.JellyfinDesktopV4L2.flatpak \
 VA_DRIVER_SO=/path/to/v4l2_request_drv_video.so \
-BOARD=jannik@192.168.1.203 ./verify-userland.sh --yes
+BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
 ```
 
 Destructive step: read `jellyfin-flatpak/README.md` and the script header
