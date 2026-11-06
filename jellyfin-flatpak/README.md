@@ -387,6 +387,45 @@ Typical limitations are unchanged from SRC: 8-bit H.264/HEVC/VP9 work;
 10-bit HEVC captures NV15 and is not importable; AV1 is not hardware-decoded on
 RK3566.
 
+## Zero-copy `v4l2request` vs `v4l2request-copy`
+
+Status: **investigated, not fixed. `v4l2request-copy` is used for now.**
+
+The packaged-mpv smoke test above intentionally uses `--hwdec=v4l2request-copy
+--vo=null`, so it never exercises true zero-copy. With a real VO and a real
+Wayland session, hardware decode negotiation does pick zero-copy correctly:
+
+```sh
+mpv --no-config --hwdec=v4l2request --vo=gpu-next --frames=180 \
+    --log-file=/tmp/mpv-zerocopy.log /home/jannik/test-claude/test.vp9.webm
+```
+
+logs `Using hardware decoding (v4l2request)`, selects the `v4l2request`
+`drmprime`-interop hwdec driver, and registers `zwp_linux_dmabuf_v1` with the
+compositor. But real playback is broken: nearly every frame is reported
+`Dropped`, and the `rkvdec` IRQ counter does not move at all during playback
+(`rkvdec_irq_delta=0`), so hardware decode is very likely never actually
+invoked for most frames despite the log line. This reproduces identically
+with `--gpu-api=opengl` forced, so it is not specific to the
+`libplacebo: Failed initializing vulkan device` error also present in the log.
+
+`sudo dmesg` on the board shows a kernel `WARNING` from
+`panfrost_gem_open` (`drivers/gpu/drm/panfrost/panfrost_gem.c:213`), reached
+through the DRM-PRIME dmabuf-import ioctl path
+(`drm_prime_fd_to_handle` → `drm_gem_prime_fd_to_handle` →
+`drm_gem_handle_create_tail` → `panfrost_gem_open`), `Tainted: [W]`. That trace
+was attributed to JMP's own `QSGRenderThread`, not the standalone mpv test
+above, so it is evidence of real trouble in exactly the dmabuf-import path
+zero-copy depends on, not a confirmed single root cause for both.
+
+This has the same shape as the NV15 investigation in the board bring-up
+repository's `HWDECODE.md`: a real, reproducible import-path failure between
+rkvdec's DRM-PRIME output and the Panfrost/Mesa GPU driver, not something
+fixable by an mpv flag. Chasing it further would mean comparing a
+non-sandboxed dmabuf import against the Flatpak-sandboxed one, and checking
+the Mesa/kernel Panfrost versions against known-working combinations — not
+attempted here. `v4l2request-copy` works and is used until this is revisited.
+
 ## Rollback
 
 ```sh
