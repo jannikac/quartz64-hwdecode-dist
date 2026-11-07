@@ -11,6 +11,9 @@ in
 pkgs.mkShell {
   packages = with pkgs; [
     # Host build tools
+    appstream # provides appstreamcli, needed by flatpak-builder's export
+              # step whenever a manifest installs a .metainfo.xml (vacuumtube-
+              # flatpak does; jellyfin-flatpak currently does not)
     bc
     bison
     ccache
