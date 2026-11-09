@@ -86,9 +86,9 @@ cat <<EOF
 
 Copy it to the board and run the hardware test there:
 
-  scp "$out" jannik@192.168.1.130:/tmp/
-  scp "$here/scripts/test-cross-ffmpeg.sh" jannik@192.168.1.130:/tmp/
-  ssh jannik@192.168.1.130 '
+  scp "$out" <user>@<board-ip>:/tmp/
+  scp "$here/scripts/test-cross-ffmpeg.sh" <user>@<board-ip>:/tmp/
+  ssh <user>@<board-ip> '
     rm -rf /tmp/cross-ffmpeg && mkdir -p /tmp/cross-ffmpeg
     tar -C /tmp/cross-ffmpeg -xzf /tmp/$(basename "$out")
     sh /tmp/test-cross-ffmpeg.sh'

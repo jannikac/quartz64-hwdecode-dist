@@ -3,7 +3,7 @@
 #
 # Usage: test-h265-4k.sh [FILE] [FRAMES]
 #   FILE    4K H.265 .hevc/.h265/.265, .mp4/.mov or .mkv/.webm input
-#           (default: /home/jannik/test-claude/test-4k.h265)
+#           (default: /home/<user>/test-claude/test-4k.h265)
 #   FRAMES  stop after this many decoded frames (default: 120)
 #
 # Set SINK=waylandsink (or autovideosink) to play the output on screen
@@ -14,7 +14,7 @@
 set -eu
 
 codec='H.265 4K'
-default=/home/jannik/test-claude/test-4k.h265
+default=/home/<user>/test-claude/test-4k.h265
 suffix=h265dec
 
 die() { printf '%s\n' "$*" >&2; exit 1; }

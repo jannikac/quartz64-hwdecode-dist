@@ -13,7 +13,7 @@ The original board bring-up repository, with the kernel patches, DTBs, device
 tree sources, driver notes, and the working Alpine/musl APK build, is:
 
 ```
-/home/jannik/Development/quartz64-b-hvec-vp9-decoder-deepseek
+/home/<user>/Development/quartz64-b-hvec-vp9-decoder-deepseek
 ```
 
 That repository is source material ("SRC").  This repository only reads from
@@ -259,7 +259,7 @@ bundle to the board:
 nix-shell
 ./jellyfin-flatpak/build-flatpak.sh
 scp jellyfin-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
-  jannik@192.168.1.130:/tmp/
+  <user>@<board-ip>:/tmp/
 ```
 
 On a native aarch64 host the same script is a plain native flatpak-builder
@@ -283,9 +283,9 @@ an aarch64 glibc cross compiler, then install it on the board:
 
 ```sh
 scp /tmp/vacuumtube-driver/v4l2_request_drv_video.so \
-  jannik@192.168.1.130:/tmp/
+  <user>@<board-ip>:/tmp/
 
-ssh jannik@192.168.1.130 '
+ssh <user>@<board-ip> '
   cd /path/to/quartz64-hwdecode-dist
   ./vacuumtube-vaapi/scripts/install-driver-override.sh \
     /tmp/v4l2_request_drv_video.so
@@ -307,9 +307,9 @@ cd /path/to/quartz64-hwdecode-dist/vacuumtube-flatpak
 # ARCH=aarch64 ./scripts/build-flatpak.sh  # on a prepared x86_64 host
 
 scp dist/dev.jannik.VacuumTubeV4L2.flatpak \
-  jannik@192.168.1.130:/tmp/
+  <user>@<board-ip>:/tmp/
 
-ssh jannik@192.168.1.130 '
+ssh <user>@<board-ip> '
   flatpak install --user --noninteractive /tmp/dev.jannik.VacuumTubeV4L2.flatpak
 '
 ```
@@ -324,7 +324,7 @@ verification, and the manual update procedure.
 1. Logs the current state to `preflight-state.log` (read-only).
 2. Uninstalls the old Alpine `ffmpeg-v4l2`, `mpv-v4l2`, and `jellyfin-desktop`
    APKs, plus the old desktop entries/wrappers.  It does **not** delete
-   `/home/jannik/hwdecode-packages/*.apk`.
+   `/home/<user>/hwdecode-packages/*.apk`.
 3. Removes the existing VacuumTube VA-API override/driver and
    `/opt/libva-v4l2-request` if present.
 4. Confirms the board is clean.
@@ -341,12 +341,12 @@ Usage:
 
 ```sh
 # The script uses ordinary key-based SSH; it never stores a password.
-BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
+BOARD=<user>@<board-ip> ./verify-userland.sh --yes
 
 # If your artifacts are not in the default locations:
 JELLYFIN_FLATPAK_BUNDLE=/path/to/dev.jannik.JellyfinDesktopV4L2.flatpak \
 VA_DRIVER_SO=/path/to/v4l2_request_drv_video.so \
-BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
+BOARD=<user>@<board-ip> ./verify-userland.sh --yes
 ```
 
 Destructive step: read `jellyfin-flatpak/README.md` and the script header

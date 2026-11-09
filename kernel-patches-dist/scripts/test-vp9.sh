@@ -3,7 +3,7 @@
 #
 # Usage: test-vp9.sh [FILE] [FRAMES]
 #   FILE    VP9 .webm/.mkv/.ivf input
-#           (default: /home/jannik/test-claude/test.vp9.webm)
+#           (default: /home/<user>/test-claude/test.vp9.webm)
 #   FRAMES  stop after this many decoded frames (default: 120)
 #
 # Set SINK=waylandsink (or autovideosink) to play the output on screen
@@ -14,7 +14,7 @@
 set -eu
 
 codec=VP9
-default=/home/jannik/test-claude/test.vp9.webm
+default=/home/<user>/test-claude/test.vp9.webm
 suffix=vp9dec
 
 die() { printf '%s\n' "$*" >&2; exit 1; }

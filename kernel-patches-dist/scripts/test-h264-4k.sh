@@ -3,7 +3,7 @@
 #
 # Usage: test-h264-4k.sh [FILE] [FRAMES]
 #   FILE    4K H.264 .h264/.264/.avc, .mp4/.mov or .mkv/.webm input
-#           (default: /home/jannik/test-claude/test-4k.h264.mkv)
+#           (default: /home/<user>/test-claude/test-4k.h264.mkv)
 #   FRAMES  stop after this many decoded frames (default: 120)
 #
 # Set SINK=waylandsink (or autovideosink) to play the output on screen
@@ -14,7 +14,7 @@
 set -eu
 
 codec='H.264 4K'
-default=/home/jannik/test-claude/test-4k.h264.mkv
+default=/home/<user>/test-claude/test-4k.h264.mkv
 suffix=h264dec
 
 die() { printf '%s\n' "$*" >&2; exit 1; }

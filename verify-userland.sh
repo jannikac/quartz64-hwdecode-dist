@@ -4,17 +4,17 @@
 # This script is intentionally destructive: it removes the old Alpine
 # ffmpeg-v4l2/mpv-v4l2/jellyfin-desktop APKs and the old VacuumTube VA-API
 # override before installing the new Flatpak/driver.  It never deletes the
-# APK build outputs in /home/jannik/hwdecode-packages.
+# APK build outputs in /home/<user>/hwdecode-packages.
 #
 # It uses ordinary key-based SSH.  No password is stored in this repository.
 # If the board requires a sudo password, the script asks for it interactively
 # through SSH (`sudo -v`) and then uses the sudo credential cache.
 #
 # Usage:
-#   BOARD=jannik@192.168.1.130 ./verify-userland.sh --yes
+#   BOARD=<user>@<board-ip> ./verify-userland.sh --yes
 #
 # Optional environment:
-#   BOARD                       SSH target (default jannik@192.168.1.130)
+#   BOARD                       SSH target (default <user>@<board-ip>)
 #   SSH_OPTS                    extra options for ssh/scp
 #   JELLYFIN_FLATPAK_BUNDLE     bundle to install
 #   VA_DRIVER_SO                prebuilt v4l2_request_drv_video.so
@@ -27,7 +27,7 @@
 set -uo pipefail
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-BOARD=${BOARD:-jannik@192.168.1.130}
+BOARD=${BOARD:-<user>@<board-ip>}
 SSH_OPTS=${SSH_OPTS:-}
 APP_ID=dev.jannik.JellyfinDesktopV4L2
 VAC_ID=rocks.shy.VacuumTube
@@ -35,7 +35,7 @@ REMOTE_TMP=${REMOTE_TMP:-/tmp/quartz64-hwdecode-dist}
 default_bundle=$ROOT/jellyfin-flatpak/dist/dev.jannik.JellyfinDesktopV4L2.flatpak
 JELLYFIN_FLATPAK_BUNDLE=${JELLYFIN_FLATPAK_BUNDLE:-$default_bundle}
 VA_DRIVER_SO=${VA_DRIVER_SO:-}
-TEST_FILE=${TEST_FILE:-/home/jannik/test-claude/test.vp9.webm}
+TEST_FILE=${TEST_FILE:-/home/<user>/test-claude/test.vp9.webm}
 JMP_WAIT_SECONDS=${JMP_WAIT_SECONDS:-180}
 VAC_WAIT_SECONDS=${VAC_WAIT_SECONDS:-180}
 SKIP_JELLYFIN=${SKIP_JELLYFIN:-0}
@@ -157,7 +157,7 @@ This will DESTROY the current userland hardware-decode state on $BOARD:
   - install: $JELLYFIN_FLATPAK_BUNDLE
   - install driver and configure $VAC_ID
 
-It will NOT delete /home/jannik/hwdecode-packages/*.apk, the kernel, DTBs,
+It will NOT delete /home/<user>/hwdecode-packages/*.apk, the kernel, DTBs,
 modules, bootloader, or the official Flathub apps.
 
 Type "yes" to continue: 
@@ -177,7 +177,7 @@ remote "pkill -f '/opt/jellyfin-desktop' 2>/dev/null || true
         flatpak kill $APP_ID 2>/dev/null || true
         flatpak kill $VAC_ID 2>/dev/null || true"
 
-info "Removing old APK packages (keeping /home/jannik/hwdecode-packages)"
+info "Removing old APK packages (keeping /home/<user>/hwdecode-packages)"
 sudo_run 'apk del jellyfin-desktop mpv-v4l2 ffmpeg-v4l2 2>&1 || true'
 
 info "Removing old launchers, wrappers and desktop entries"

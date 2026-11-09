@@ -164,9 +164,9 @@ Copy only the bundle to the board:
 
 ```sh
 scp dist/dev.jannik.VacuumTubeV4L2.flatpak \
-  jannik@192.168.1.130:/tmp/
+  <user>@<board-ip>:/tmp/
 
-ssh jannik@192.168.1.130 '
+ssh <user>@<board-ip> '
   flatpak install --user --noninteractive \
     /tmp/dev.jannik.VacuumTubeV4L2.flatpak
 '

@@ -12,7 +12,7 @@
 set -eu
 
 dir=${1:-/tmp/cross-ffmpeg}
-file=${2:-/home/jannik/test-claude/test.vp9.webm}
+file=${2:-/home/<user>/test-claude/test.vp9.webm}
 runtime=$(find /var/lib/flatpak/runtime/org.kde.Platform/aarch64/6.11 \
 	-maxdepth 3 -type d -name files | head -1)
 

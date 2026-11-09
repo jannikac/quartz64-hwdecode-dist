@@ -12,7 +12,7 @@ here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "$here/../env.sh"
 
 prefix=${1:-/opt/libva-v4l2-request}
-file=${2:-/home/jannik/test-claude/test.vp9.webm}
+file=${2:-/home/<user>/test-claude/test.vp9.webm}
 
 export LIBVA_DRIVER_NAME="$VA_DRIVER_NAME"
 export LIBVA_DRIVERS_PATH="$prefix/lib/dri"

@@ -22,7 +22,7 @@ only because upstream JMP does not ship the `v4l2request` stateless hwaccel or
 the RK3566 driver support enabled in this configuration.
 
 The original working Alpine/musl `/opt` APK build remains in the board bring-up
-repository, `/home/jannik/Development/quartz64-b-hvec-vp9-decoder-deepseek`
+repository, `/home/<user>/Development/quartz64-b-hvec-vp9-decoder-deepseek`
 (referred to as SRC in this document).
 
 ## Milestone 1 — Qt WebEngine / FFmpeg de-risking
@@ -166,10 +166,10 @@ Run the test yourself without building anything on the board:
 
 ```sh
 scp jellyfin-flatpak/cross-build/cross-ffmpeg-aarch64.tar.gz \
-    jannik@192.168.1.130:/tmp/
+    <user>@<board-ip>:/tmp/
 scp jellyfin-flatpak/scripts/test-cross-ffmpeg.sh \
-    jannik@192.168.1.130:/tmp/
-ssh jannik@192.168.1.130 '
+    <user>@<board-ip>:/tmp/
+ssh <user>@<board-ip> '
   rm -rf /tmp/cross-ffmpeg && mkdir -p /tmp/cross-ffmpeg
   tar -C /tmp/cross-ffmpeg -xzf /tmp/cross-ffmpeg-aarch64.tar.gz
   sh /tmp/test-cross-ffmpeg.sh'
@@ -292,9 +292,9 @@ Copy only the bundle:
 
 ```sh
 scp dist/dev.jannik.JellyfinDesktopV4L2.flatpak \
-  jannik@192.168.1.130:/tmp/
+  <user>@<board-ip>:/tmp/
 
-ssh jannik@192.168.1.130 '
+ssh <user>@<board-ip> '
   flatpak install --user --noninteractive \
     /tmp/dev.jannik.JellyfinDesktopV4L2.flatpak
 '
@@ -376,7 +376,7 @@ login) can be run inside the sandbox on a local file:
 flatpak run --filesystem="$HOME/test-claude:ro" \
   --command=sh dev.jannik.JellyfinDesktopV4L2 -c '
     mpv --no-config --hwdec=v4l2request-copy --vo=null --frames=120 \
-        --log-file=/tmp/mpv-smoke.log "/home/jannik/test-claude/test.vp9.webm"
+        --log-file=/tmp/mpv-smoke.log "/home/<user>/test-claude/test.vp9.webm"
     grep -oE "Using (hardware|software) decoding[^ ]*( \([a-z0-9-]+\))?" /tmp/mpv-smoke.log
   '
 ```
@@ -397,7 +397,7 @@ Wayland session, hardware decode negotiation does pick zero-copy correctly:
 
 ```sh
 mpv --no-config --hwdec=v4l2request --vo=gpu-next --frames=180 \
-    --log-file=/tmp/mpv-zerocopy.log /home/jannik/test-claude/test.vp9.webm
+    --log-file=/tmp/mpv-zerocopy.log /home/<user>/test-claude/test.vp9.webm
 ```
 
 logs `Using hardware decoding (v4l2request)`, selects the `v4l2request`

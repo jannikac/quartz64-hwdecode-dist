@@ -137,7 +137,7 @@ test rather than a zero-copy test):
 
 ```sh
 ./scripts/test-vaapi-host.sh /opt/libva-v4l2-request \
-  /home/jannik/test-claude/test.vp9.webm
+  /home/<user>/test-claude/test.vp9.webm
 ```
 
 Expected: `Using hardware decoding (vaapi-copy)`.  If this fails, do not
