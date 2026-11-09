@@ -98,6 +98,9 @@ Five local patches are applied:
   `build-libva-cross.sh` path).  Alternatively, about 2 GB free on the board
   for the `org.freedesktop.Sdk`.  This board only had about 1 GB, so the
   cross build was used.
+- `jq` installed on the board before running `configure-vacuumtube.sh`.
+  Without it the script does not modify `config.json`; it only prints the
+  settings to change by hand, which is easy to miss.
 
 ## Step 1: prove the VA-API driver on the host (optional, legacy `/opt` stack)
 

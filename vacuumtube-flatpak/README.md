@@ -193,8 +193,11 @@ The official `rocks.shy.VacuumTube` app, if installed, is not modified.
 ### Configure the app
 
 The driver and `LIBVA_*` environment are already baked in.  The remaining
-configuration is VacuumTube's own Chromium flags and codec settings.  On the
-board, as the desktop user:
+configuration is VacuumTube's own Chromium flags and codec settings.  Install
+`jq` on the board first -- without it the script only prints the settings to
+change by hand instead of writing `config.json`, which is easy to miss and
+looks like hardware decoding silently isn't configured.  Then, on the board,
+as the desktop user:
 
 ```sh
 ./scripts/configure-vacuumtube.sh
@@ -202,8 +205,7 @@ board, as the desktop user:
 
 This writes `~/.var/app/dev.jannik.VacuumTubeV4L2/config/VacuumTube/flags.txt`
 and enables `hardware_decoding` plus the VP9-only codec filter in `config.json`.
-It backs up existing files first.  If `jq` is unavailable, it prints the
-settings to change manually instead of overwriting `config.json`.
+It backs up existing files first.
 
 A Wayland session is required for the zero-copy NV12 path.
 

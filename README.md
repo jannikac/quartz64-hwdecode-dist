@@ -106,6 +106,10 @@ the repo owner for the matching bundle and driver.
 
 - Use your own Jellyfin account.  This repository never ships credentials,
   tokens, or server URLs.
+- Install `jq` on the board before running either `configure-vacuumtube.sh`
+  script.  Without it, the script does not merge `config.json`; it only
+  prints the settings for you to change by hand, which is easy to miss and
+  looks like hardware decoding silently isn't configured.
 
 ### 1. Install Jellyfin Desktop (hardware-decoded)
 
