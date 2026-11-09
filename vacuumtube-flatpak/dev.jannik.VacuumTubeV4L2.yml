@@ -96,7 +96,8 @@ modules:
       - install -Dm755 ../startvacuumtube /app/bin/startvacuumtube
       - install -Dm644 ../dev.jannik.VacuumTubeV4L2.metainfo.xml -t /app/share/metainfo/
       - install -Dm644 ../dev.jannik.VacuumTubeV4L2.desktop -t /app/share/applications/
-      - install -Dm644 ../dev.jannik.VacuumTubeV4L2.svg /app/share/icons/hicolor/scalable/apps/dev.jannik.VacuumTubeV4L2.svg
+      # Keep the upstream artwork but under this personal app's icon ID.
+      - install -Dm644 assets/icon.svg /app/share/icons/hicolor/scalable/apps/dev.jannik.VacuumTubeV4L2.svg
 
     sources:
       - flatpak-sources.json
@@ -109,11 +110,11 @@ modules:
       - type: file
         path: startvacuumtube
 
-      # Personal metadata and icon.  Do not reuse rocks.shy.VacuumTube's app
-      # ID or icon: both apps may be installed side by side.
+      # Personal metadata.  Do not reuse rocks.shy.VacuumTube's app ID: both
+      # apps may be installed side by side.  The icon artwork itself is the
+      # real upstream assets/icon.svg from the main source above, just
+      # installed under this app's own icon ID.
       - type: file
         path: dev.jannik.VacuumTubeV4L2.metainfo.xml
       - type: file
         path: dev.jannik.VacuumTubeV4L2.desktop
-      - type: file
-        path: dev.jannik.VacuumTubeV4L2.svg

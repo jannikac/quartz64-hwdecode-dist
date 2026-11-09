@@ -58,9 +58,11 @@ The manifest is kept as close to upstream as practical.  The only deliberate
 differences are:
 
 1. App ID changed to `dev.jannik.VacuumTubeV4L2`.
-2. Own desktop file, AppStream metadata and SVG icon under the new ID.  The
-   official icon/app ID is never reused, so the two launcher entries do not
-   collide.
+2. Own desktop file and AppStream metadata under the new ID.  The icon is the
+   real upstream `assets/icon.svg` from the cloned VacuumTube source, just
+   installed under this app's icon ID instead of `rocks.shy.VacuumTube`'s, so
+   the two launcher entries still do not collide at the ID/export level even
+   though they look the same.
 3. A `libva-v4l2-request` module that installs `/app/lib/dri/v4l2_request_drv_video.so`.
 4. Two `finish-args` entries:
    `--env=LIBVA_DRIVER_NAME=v4l2_request` and
@@ -336,7 +338,6 @@ vacuumtube-flatpak/flatpak-sources.json
 vacuumtube-flatpak/startvacuumtube
 vacuumtube-flatpak/dev.jannik.VacuumTubeV4L2.desktop
 vacuumtube-flatpak/dev.jannik.VacuumTubeV4L2.metainfo.xml
-vacuumtube-flatpak/dev.jannik.VacuumTubeV4L2.svg
 vacuumtube-flatpak/init_compat.c
 vacuumtube-flatpak/env.sh
 vacuumtube-flatpak/configs/flags.txt
